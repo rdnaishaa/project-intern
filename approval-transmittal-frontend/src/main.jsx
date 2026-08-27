@@ -20,6 +20,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   QrCode,
   Search,
   ShieldCheck,
@@ -28,6 +29,7 @@ import {
   X,
   XCircle
 } from "lucide-react";
+
 
 import {
   QRCodeSVG
@@ -135,150 +137,169 @@ function fmt(date) {
   );
 }
 
+  /* =========================================================
+   DUMMY WHATSAPP NOTIFICATION
+========================================================= */
+
+function createWhatsAppNotification({
+  doc,
+  recipient,
+  type,
+  step = null
+}) {
+
+  const now = new Date().toISOString();
+
+  let title = "";
+  let message = "";
+  let actionLabel = "";
+  let actionType = "";
+
+  if (type === "SUBMITTED") {
+
+    title = "Pengajuan Baru";
+
+    message =
+      `Pengajuan ${doc.submissionNo} membutuhkan review Anda.`;
+
+    actionLabel = "Review Now";
+    actionType = "REVIEW";
+
+  }
+
+  else if (type === "NEXT_REVIEWER") {
+
+    title = "Menunggu Review Anda";
+
+    message =
+      `Dokumen ${doc.submissionNo} telah melewati tahap sebelumnya dan sekarang menunggu review Anda.`;
+
+    actionLabel = "Review Now";
+    actionType = "REVIEW";
+
+  }
+
+  else if (type === "NEXT_APPROVER") {
+
+    title = "Menunggu Approval Anda";
+
+    message =
+      `Dokumen ${doc.submissionNo} telah melewati seluruh tahap reviewer dan sekarang menunggu persetujuan Anda.`;
+
+    actionLabel = "Approve Now";
+    actionType = "APPROVE";
+
+  }
+
+  else if (type === "REJECTED") {
+
+    title = "Dokumen Perlu Revisi";
+
+    message =
+      `Pengajuan ${doc.submissionNo} ditolak dan perlu diperbaiki oleh pemohon.`;
+
+    actionLabel = "Lihat Pengajuan";
+    actionType = "VIEW";
+
+  }
+
+  else if (type === "COMPLETED") {
+
+    title = "Approval Selesai";
+
+    message =
+      `Seluruh tahapan approval ${doc.submissionNo} telah selesai. Dokumen telah disetujui.`;
+
+    actionLabel = "Lihat Dokumen";
+    actionType = "VIEW";
+
+  }
+
+  return {
+
+    id: uid(),
+
+    documentId:
+      doc.id,
+
+    recipientId:
+      recipient?.id || null,
+
+    recipientName:
+      recipient?.name || "User",
+
+    recipientPhone:
+      recipient?.phone || "08xxxxxxxxxx",
+
+    type,
+
+    title,
+
+    message,
+
+    actionLabel,
+
+    actionType,
+
+    stepId:
+      step?.id || null,
+
+    sentAt:
+      now,
+
+    status:
+      "SENT"
+
+  };
+}
 
 /* =========================================================
    GET CURRENT APPROVAL STEP
 ========================================================= */
 
 function getCurrentStep(doc) {
-
-  if (
-    !doc ||
-    !Array.isArray(doc.steps) ||
-    doc.steps.length === 0
-  ) {
+  if (!doc || !Array.isArray(doc.steps) || doc.steps.length === 0) {
     return null;
   }
 
-  /*
-    Approval selalu mengikuti ORDER.
-
-    Contoh:
-
-    Step 1 → Budi   → WAITING  ← AKTIF
-    Step 2 → Andi   → WAITING
-    Step 3 → Sari   → WAITING
-
-    Setelah Budi approve:
-
-    Step 1 → Budi   → APPROVED
-    Step 2 → Andi   → WAITING  ← AKTIF
-    Step 3 → Sari   → WAITING
-  */
-
-  const sortedSteps = [
-    ...doc.steps
-  ].sort(
-    (a, b) =>
-      Number(a.order) -
-      Number(b.order)
+  const sortedSteps = [...doc.steps].sort(
+    (a, b) => Number(a.order) - Number(b.order)
   );
 
-
-  /*
-    Ambil step pertama
-    yang belum APPROVED.
-
-    WAITING → aktif
-    REJECTED → bukan approval aktif
-    APPROVED → sudah selesai
-  */
-
+  // Step WAITING pertama berdasarkan urutan = step aktif
   return (
     sortedSteps.find(
-      step =>
-        step.status === "WAITING"
+      step => step.status === "WAITING"
     ) || null
   );
 }
 
 
-/* =========================================================
-   CHECK WHETHER A STEP IS ACTIVE
-========================================================= */
-
-function isStepActive(
-  doc,
-  stepId
-) {
-
-  if (
-    !doc ||
-    !Array.isArray(doc.steps)
-  ) {
+function isStepActive(doc, stepId) {
+  if (!doc || !Array.isArray(doc.steps)) {
     return false;
   }
 
+  const step = doc.steps.find(
+    item => String(item.id) === String(stepId)
+  );
 
-  /*
-    Cari step berdasarkan ID.
-  */
-
-  const step =
-    doc.steps.find(
-      item =>
-        String(item.id) ===
-        String(stepId)
-    );
-
-
-  if (!step) {
+  if (!step || step.status !== "WAITING") {
     return false;
   }
 
+  const previousSteps = doc.steps.filter(
+    item => Number(item.order) < Number(step.order)
+  );
 
-  /*
-    Kalau step sudah selesai,
-    tentu tidak aktif lagi.
-  */
-
-  if (
-    step.status !== "WAITING"
-  ) {
-    return false;
-  }
-
-
-  /*
-    Ambil semua step sebelum
-    step yang sedang dicek.
-  */
-
-  const previousSteps =
-    doc.steps.filter(
-      item =>
-        Number(item.order) <
-        Number(step.order)
-    );
-
-
-  /*
-    STEP PERTAMA
-
-    Tidak punya previous step,
-    sehingga langsung aktif.
-
-    [].every(...) === true
-  */
-
-  if (
-    previousSteps.length === 0
-  ) {
+  // Kalau step pertama → langsung aktif
+  if (previousSteps.length === 0) {
     return true;
   }
 
-
-  /*
-    STEP BERIKUTNYA
-
-    Semua step sebelumnya
-    harus APPROVED.
-  */
-
+  // Step berikutnya hanya aktif kalau SEMUA sebelumnya approved
   return previousSteps.every(
-    item =>
-      item.status ===
-      "APPROVED"
+    item => item.status === "APPROVED"
   );
 }
 
@@ -296,9 +317,7 @@ function isStepActive(
   ubah Budi menjadi WAITING.
 */
 
-const INITIAL_DOCS = [
-
-];
+const INITIAL_DOCS = [];
 
 
 /* =========================================================
@@ -734,6 +753,207 @@ function SignaturePad({
   );
 }
 
+function WhatsAppNotifications({
+  notifications,
+  onOpen
+}) {
+
+  return (
+
+    <div className="min-h-screen bg-slate-50 p-5 md:p-10">
+
+      <div className="mx-auto max-w-3xl">
+
+        <div className="mb-6">
+
+          <div className="flex items-center gap-3">
+
+            <div className="rounded-xl border bg-white p-3">
+
+              <MessageCircle
+                size={24}
+              />
+
+            </div>
+
+            <div>
+
+              <h1 className="text-2xl font-extrabold">
+
+                WhatsApp Notifications
+
+              </h1>
+
+              <p className="text-sm text-slate-500">
+
+                Simulasi notifikasi approval berjenjang
+
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+        {notifications.length === 0 ? (
+
+          <div className="card p-10 text-center">
+
+            <MessageCircle
+              size={40}
+              className="mx-auto mb-3 text-slate-300"
+            />
+
+            <p className="font-semibold">
+
+              Belum ada notifikasi
+
+            </p>
+
+            <p className="mt-1 text-sm text-slate-400">
+
+              Notifikasi akan muncul ketika
+              pengajuan diproses.
+
+            </p>
+
+          </div>
+
+        ) : (
+
+          <div className="space-y-4">
+
+            {notifications.map(
+              notification => (
+
+                <div
+                  key={
+                    notification.id
+                  }
+                  className="overflow-hidden rounded-2xl border bg-white shadow-sm"
+                >
+
+                  {/* HEADER */}
+
+                  <div className="flex items-center gap-3 border-b p-4">
+
+                    <div className="grid h-10 w-10 place-items-center rounded-full border">
+
+                      <MessageCircle
+                        size={20}
+                      />
+
+                    </div>
+
+                    <div className="flex-1">
+
+                      <div className="text-sm font-bold">
+
+                        WhatsApp
+
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+
+                        Terkirim •{" "}
+                        {fmt(
+                          notification.sentAt
+                        )}
+
+                      </div>
+
+                    </div>
+
+                    <span className="rounded-full border px-2 py-1 text-[10px] font-bold">
+
+                      SENT
+
+                    </span>
+
+                  </div>
+
+
+                  {/* MESSAGE */}
+
+                  <div className="p-5">
+
+                    <div className="mb-4">
+
+                      <div className="text-xs text-slate-400">
+
+                        Kepada
+
+                      </div>
+
+                      <div className="font-bold">
+
+                        {notification.recipientName}
+
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+
+                        {notification.recipientPhone}
+
+                      </div>
+
+                    </div>
+
+
+                    <div className="rounded-2xl border p-4">
+
+                      <div className="mb-2 font-bold">
+
+                        {notification.title}
+
+                      </div>
+
+                      <p className="text-sm leading-6 text-slate-600">
+
+                        {notification.message}
+
+                      </p>
+
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpen(
+                            notification.documentId
+                          )
+                        }
+                        className="btn-primary mt-4 w-full"
+                      >
+
+                        {notification.actionLabel}
+
+                        <ChevronRight
+                          size={16}
+                        />
+
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+              )
+            )}
+
+          </div>
+
+        )}
+
+      </div>
+
+    </div>
+
+  );
+}
 
 /* =========================================================
    APP
@@ -755,9 +975,16 @@ function App() {
   ] =
     useState(
       INITIAL_DOCS
+      
     );
 
 
+    const [
+  whatsappNotifications,
+  setWhatsappNotifications
+] =
+  useState([]);
+  
   const [
     user,
     setUser
@@ -921,6 +1148,37 @@ function App() {
       );
     };
 
+/* =========================================================
+   SEND DUMMY WHATSAPP
+========================================================= */
+
+function sendWhatsApp({
+  doc,
+  recipient,
+  type,
+  step = null
+}) {
+
+  if (!doc || !recipient) {
+    return;
+  }
+
+  const notification =
+    createWhatsAppNotification({
+      doc,
+      recipient,
+      type,
+      step
+    });
+
+  setWhatsappNotifications(
+    current => [
+      notification,
+      ...current
+    ]
+  );
+
+}
 
   /* =======================================================
      CREATE REQUEST
@@ -1032,11 +1290,48 @@ function App() {
       ]
     );
 
+/* =====================================================
+   WHATSAPP:
+   KIRIM KE REVIEWER PERTAMA
+===================================================== */
 
-    open(
-      newId
-    );
+const firstStep =
+  newDoc.steps
+    .sort(
+      (a, b) =>
+        Number(a.order) -
+        Number(b.order)
+    )[0];
+
+
+  if (firstStep) {
+
+    const firstReviewer =
+      users.find(
+        user =>
+          String(user.id) ===
+          String(firstStep.approverId)
+      );
+
+    if (firstReviewer) {
+
+      sendWhatsApp({
+        doc: newDoc,
+        recipient: firstReviewer,
+        type:
+          firstStep.role === "REVIEWER"
+            ? "SUBMITTED"
+            : "NEXT_APPROVER",
+        step: firstStep
+      });
+
+    }
   }
+
+  open(
+    newId
+  );
+}
 
 
   /* =======================================================
@@ -1078,171 +1373,108 @@ function App() {
      AUTHORIZE ACTION
   ======================================================= */
 
-  function authorizeAction(
-    selectedUserId
-  ) {
-
-    if (
-      !authRequest
-    ) {
-      return;
-    }
-
-
-    const doc =
-      docs.find(
-        item =>
-          Number(
-            item.id
-          ) ===
-          Number(
-            authRequest.docId
-          )
-      );
-
-
-    if (!doc) {
-
-      alert(
-        "Dokumen tidak ditemukan."
-      );
-
-      return;
-    }
-
-
-    /*
-      Cari STEP YANG BENAR-BENAR AKTIF.
-      Bukan langsung percaya step dari modal.
-    */
-
-    const activeStep =
-      getCurrentStep(
-        doc
-      );
-
-
-    if (!activeStep) {
-
-      alert(
-        "Tidak ada approval yang sedang menunggu."
-      );
-
-      return;
-    }
-
-
-    const selectedUser =
-      users.find(
-        item =>
-          Number(
-            item.id
-          ) ===
-          Number(
-            selectedUserId
-          )
-      );
-
-
-    if (
-      !selectedUser
-    ) {
-
-      alert(
-        "User tidak ditemukan."
-      );
-
-      return;
-    }
-
-
-    /*
-      VALIDASI BERDASARKAN ID.
-    */
-
-    const sameId =
-      Number(
-        selectedUser.id
-      ) ===
-      Number(
-        activeStep.approverId
-      );
-
-
-    /*
-      Fallback nama supaya prototype
-      tidak error karena perbedaan tipe ID.
-    */
-
-    const sameName =
-      selectedUser.name
-        .trim()
-        .toLowerCase() ===
-      activeStep.approverName
-        .trim()
-        .toLowerCase();
-
-
-    if (
-      !sameId &&
-      !sameName
-    ) {
-
-      alert(
-        `Access Denied.\n\n` +
-        `Dokumen saat ini menunggu:\n` +
-        `${activeStep.approverName}\n` +
-        `${activeStep.position}\n` +
-        `${activeStep.area}`
-      );
-
-      return;
-    }
-
-
-    /*
-      Pastikan urutan aktif.
-    */
-
-    if (
-      !isStepActive(
-        doc,
-        activeStep.id
-      )
-    ) {
-
-      alert(
-        "Approval sebelumnya belum selesai."
-      );
-
-      return;
-    }
-
-
-    /*
-      BERHASIL LOGIN.
-    */
-
-    setUser(
-      selectedUser
-    );
-
-
-    setActionContext({
-
-      docId:
-        doc.id,
-
-      stepId:
-        activeStep.id
-
-    });
-
-
-    setAuthRequest(
-      null
-    );
+function authorizeAction(selectedUserId) {
+  if (!authRequest) {
+    return;
   }
+
+  const doc = docs.find(
+    item =>
+      String(item.id) ===
+      String(authRequest.docId)
+  );
+
+  if (!doc) {
+    alert("Dokumen tidak ditemukan.");
+    return;
+  }
+
+  // Ambil step yang benar-benar sedang aktif
+  const activeStep = getCurrentStep(doc);
+
+  if (!activeStep) {
+    alert(
+      "Tidak ada approval yang sedang menunggu."
+    );
+    return;
+  }
+
+  // Cari user yang dipilih dari database
+  const selectedUser = users.find(
+    item =>
+      String(item.id) ===
+      String(selectedUserId)
+  );
+
+  if (!selectedUser) {
+    alert("User tidak ditemukan.");
+    return;
+  }
+
+  /*
+   * USER YANG DIPILIH HARUS SAMA
+   * DENGAN USER YANG DITUGASKAN
+   */
+  const assignedUserId =
+    activeStep.approverId ??
+    activeStep.assignedUserId;
+
+  const sameUser =
+    String(selectedUser.id) ===
+    String(assignedUserId);
+
+  /*
+   * Fallback nama untuk data lama
+   */
+  const sameName =
+    selectedUser.name?.trim().toLowerCase() ===
+    activeStep.approverName?.trim().toLowerCase();
+
+  if (!sameUser && !sameName) {
+    alert(
+      `Access Denied.\n\n` +
+      `Dokumen saat ini menunggu:\n` +
+      `${activeStep.approverName}\n` +
+      `${activeStep.role}\n` +
+      `${activeStep.position}\n` +
+      `${activeStep.area}`
+    );
+
+    return;
+  }
+
+  /*
+   * Pastikan step yang dipilih memang
+   * step yang sedang aktif.
+   */
+  if (
+    String(activeStep.id) !==
+    String(
+      getCurrentStep(doc)?.id
+    )
+  ) {
+    alert(
+      "Approval sebelumnya belum selesai."
+    );
+
+    return;
+  }
+
+  /*
+   * LOGIN BERHASIL
+   *
+   * User sekarang masuk ke halaman
+   * Review / Approval + Signature.
+   */
+  setUser(selectedUser);
+
+  setActionContext({
+    docId: doc.id,
+    stepId: activeStep.id
+  });
+
+  setAuthRequest(null);
+}
 
 
   /* =======================================================
@@ -1285,12 +1517,8 @@ function App() {
                 step => {
 
                   if (
-                    Number(
-                      step.id
-                    ) !==
-                    Number(
-                      stepId
-                    )
+                    String(step.id) !==
+                    String(stepId)
                   ) {
                     return step;
                   }
@@ -1343,6 +1571,39 @@ function App() {
               "REJECT"
             ) {
 
+              const applicant =
+  users.find(
+    user =>
+      String(user.id) ===
+      String(doc.applicantId)
+  );
+
+
+if (applicant) {
+
+  sendWhatsApp({
+
+    doc: {
+      ...doc,
+      steps: updatedSteps
+    },
+
+    recipient:
+      applicant,
+
+    type:
+      "REJECTED",
+
+    step:
+      doc.steps.find(
+        step =>
+          String(step.id) ===
+          String(stepId)
+      )
+
+  });
+
+}
               return {
 
                 ...doc,
@@ -1371,7 +1632,106 @@ function App() {
                   "APPROVED"
               );
 
+/* =====================================================
+   WHATSAPP NEXT APPROVAL
+===================================================== */
 
+if (
+  action === "APPROVE"
+) {
+
+  const nextStep =
+    updatedSteps
+      .filter(
+        step =>
+          step.status ===
+          "WAITING"
+      )
+      .sort(
+        (a, b) =>
+          Number(a.order) -
+          Number(b.order)
+      )[0];
+
+
+  if (nextStep) {
+
+    const nextUser =
+      users.find(
+        user =>
+          String(user.id) ===
+          String(
+            nextStep.approverId
+          )
+      );
+
+
+    if (nextUser) {
+
+      sendWhatsApp({
+
+        doc: {
+          ...doc,
+          steps: updatedSteps
+        },
+
+        recipient:
+          nextUser,
+
+        type:
+          nextStep.role ===
+          "REVIEWER"
+
+            ? "NEXT_REVIEWER"
+
+            : "NEXT_APPROVER",
+
+        step:
+          nextStep
+
+      });
+
+    }
+
+  }
+
+
+  /* ================================================
+     SEMUA SELESAI
+  ================================================ */
+
+  if (allApproved) {
+
+    const applicant =
+      users.find(
+        user =>
+          String(user.id) ===
+          String(doc.applicantId)
+      );
+
+
+    if (applicant) {
+
+      sendWhatsApp({
+
+        doc: {
+          ...doc,
+          steps: updatedSteps
+        },
+
+        recipient:
+          applicant,
+
+        type:
+          "COMPLETED"
+
+      });
+
+    }
+
+  }
+
+}
             return {
 
               ...doc,
@@ -1442,12 +1802,8 @@ function App() {
     actionDoc
       ? actionDoc.steps.find(
           step =>
-            Number(
-              step.id
-            ) ===
-            Number(
-              actionContext.stepId
-            )
+            String(step.id) ===
+            String(actionContext.stepId)
         )
       : null;
 
@@ -1639,24 +1995,19 @@ function App() {
 
   }
 
-  else if (
-    page ===
-    "notifications"
-  ) {
+else if (
+  page === "notifications"
+) {
 
     content = (
 
-      <Notifications
+      <WhatsAppNotifications
 
-        user={
-          user
+        notifications={
+          whatsappNotifications
         }
 
-        docs={
-          docs
-        }
-
-        open={
+        onOpen={
           open
         }
 
