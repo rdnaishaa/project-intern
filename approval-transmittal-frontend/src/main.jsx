@@ -110,6 +110,81 @@ const MASTER_USERS = [
 /* =========================================================
    HELPERS
 ========================================================= */
+/* =========================================================
+   DOCUMENT ACCESS CONTROL
+========================================================= */
+
+function canAccessDocument(
+  doc,
+  user
+) {
+
+  /*
+    Public / belum login
+    tidak boleh mengakses file dokumen.
+  */
+
+  if (
+    !doc ||
+    !user
+  ) {
+    return false;
+  }
+
+
+  /*
+    Applicant:
+    hanya boleh melihat dokumen
+    yang dia ajukan sendiri.
+  */
+
+  const isApplicant =
+    String(
+      doc.applicantId
+    ) ===
+    String(
+      user.id
+    );
+
+
+  if (
+    isApplicant
+  ) {
+    return true;
+  }
+
+
+  /*
+    Reviewer / Approver:
+    hanya boleh melihat dokumen
+    jika user tersebut tercatat
+    dalam approval chain.
+  */
+
+  const isAssigned =
+    Array.isArray(
+      doc.steps
+    ) &&
+    doc.steps.some(
+      step =>
+        String(
+          step.approverId
+        ) ===
+        String(
+          user.id
+        )
+    );
+
+
+  if (
+    isAssigned
+  ) {
+    return true;
+  }
+
+
+  return false;
+}
 
 function uid() {
   return Math.random()
@@ -137,6 +212,29 @@ function fmt(date) {
   );
 }
 
+function canAccessFinalDocument(
+  doc,
+  user
+) {
+
+  /*
+    Dokumen final hanya tersedia
+    setelah seluruh approval selesai.
+  */
+
+  if (
+    !doc ||
+    doc.status !== "APPROVED"
+  ) {
+    return false;
+  }
+
+
+  return canAccessDocument(
+    doc,
+    user
+  );
+}
   /* =========================================================
    DUMMY WHATSAPP NOTIFICATION
 ========================================================= */
@@ -1576,7 +1674,28 @@ function App() {
       return;
 
     }
+/* =====================================================
+   GENERAL LOGIN
+===================================================== */
 
+if (
+  authRequest.action ===
+  "LOGIN"
+) {
+
+  setUser(
+    selectedUser
+  );
+
+
+  setAuthRequest(
+    null
+  );
+
+
+  return;
+
+}
 
     /* =====================================================
        CREATE REQUEST
@@ -2534,28 +2653,31 @@ function App() {
 
     <>
 
-      <Layout
+    <Layout
+  user={
+    user
+  }
 
-        user={
-          user
-        }
+  setUser={
+    setUser
+  }
 
+  page={
+    page
+  }
 
-        setUser={
-          setUser
-        }
+  go={
+    go
+  }
 
+  onLogin={() => {
 
-        page={
-          page
-        }
+    setAuthRequest({
+      action: "LOGIN"
+    });
 
-
-        go={
-          go
-        }
-
-      >
+  }}
+>
 
         {content}
 
@@ -2611,6 +2733,7 @@ function Layout({
   setUser,
   page,
   go,
+  onLogin,
   children
 }) {
 
@@ -2892,38 +3015,54 @@ function Layout({
 
           {user ? (
 
-            <button
+  <div className="flex items-center gap-3">
 
-              className="btn-secondary"
+    <div className="hidden text-right sm:block">
 
-              onClick={() =>
-                setUser(
-                  null
-                )
-              }
-            >
+      <div className="text-sm font-bold text-slate-800">
+        {user.name}
+      </div>
 
-              <LogOut
-                size={16}
-              />
+      <div className="text-xs text-slate-400">
+        {user.role}
+      </div>
 
-              Logout
+    </div>
 
-            </button>
 
-          ) : (
+    <button
+      type="button"
+      className="btn-secondary"
+      onClick={() => {
 
-            <span
-              className="
-                text-xs
-                font-semibold
-                text-slate-400
-              "
-            >
-              Public Access
-            </span>
+        setUser(null);
 
-          )}
+      }}
+    >
+
+      <LogOut
+        size={16}
+      />
+
+      Logout
+
+    </button>
+
+  </div>
+
+) : (
+
+  <button
+    type="button"
+    className="btn-primary"
+    onClick={onLogin}
+  >
+
+    Login
+
+  </button>
+
+)}
 
         </header>
 
@@ -5882,57 +6021,181 @@ function Detail({
           </div>
 
 
-          {doc.status ===
-            "APPROVED" && (
+          {/* =================================================
+              FINAL DOCUMENT
+          ================================================= */}
+
+          {doc.status === "APPROVED" && (
 
             <div
               className="
                 card
-                border-emerald-200
-                bg-emerald-50/40
                 p-5
               "
             >
 
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  font-bold
-                  text-emerald-700
-                "
-              >
+              <div>
 
-                <CheckCircle2 />
+                <div
+                  className="
+                    text-xs
+                    font-bold
+                    uppercase
+                    text-emerald-600
+                  "
+                >
+                  Approval Selesai
+                </div>
 
-                Semua approval selesai
+                <h2
+                  className="
+                    mt-1
+                    font-bold
+                  "
+                >
+                  Dokumen Final
+                </h2>
+
+                <p
+                  className="
+                    mt-1
+                    text-sm
+                    text-slate-500
+                  "
+                >
+                  Seluruh tahapan approval telah selesai.
+                  Dokumen final hanya dapat dilihat oleh
+                  pengguna yang memiliki hak akses.
+                </p>
 
               </div>
 
 
-              <button
+              {/* BELUM LOGIN */}
 
-                type="button"
+              {!user && (
 
-                className="
-                  btn-primary
-                  mt-4
-                  w-full
-                "
+                <div
+                  className="
+                    mt-4
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-slate-50
+                    p-4
+                  "
+                >
 
-                onClick={
-                  onPreviewFinal
-                }
-              >
+                  <div
+                    className="
+                      font-semibold
+                      text-slate-800
+                    "
+                  >
+                    Dokumen final bersifat privat
+                  </div>
 
-                <FileText
-                  size={16}
-                />
+                  <p
+                    className="
+                      mt-1
+                      text-sm
+                      text-slate-500
+                    "
+                  >
+                    Silakan login sebagai pemohon, reviewer,
+                    atau approver yang terkait untuk melihat
+                    dokumen final.
+                  </p>
 
-                Lihat Dokumen Final
+                </div>
 
-              </button>
+              )}
+
+
+              {/* SUDAH LOGIN DAN MEMILIKI AKSES */}
+
+              {user &&
+                canAccessFinalDocument(
+                  doc,
+                  user
+                ) && (
+
+                <div
+                  className="
+                    mt-4
+                  "
+                >
+
+                  <button
+                    type="button"
+                    className="
+                      btn-primary
+                      w-full
+                    "
+                    onClick={
+                      onPreviewFinal
+                    }
+                  >
+
+                    <FileText
+                      size={17}
+                    />
+
+                    Lihat Dokumen Final
+
+                    <ChevronRight
+                      size={17}
+                    />
+
+                  </button>
+
+                </div>
+
+              )}
+
+
+              {/* SUDAH LOGIN TAPI TIDAK MEMILIKI AKSES */}
+
+              {user &&
+                !canAccessFinalDocument(
+                  doc,
+                  user
+                ) && (
+
+                <div
+                  className="
+                    mt-4
+                    rounded-xl
+                    border
+                    border-red-200
+                    bg-red-50
+                    p-4
+                  "
+                >
+
+                  <div
+                    className="
+                      font-semibold
+                      text-red-700
+                    "
+                  >
+                    Access Denied
+                  </div>
+
+                  <p
+                    className="
+                      mt-1
+                      text-sm
+                      text-red-600
+                    "
+                  >
+                    Akun Anda tidak memiliki hak akses
+                    untuk melihat dokumen final ini.
+                  </p>
+
+                </div>
+
+              )}
 
             </div>
 
@@ -6920,31 +7183,90 @@ function AuthModal({
   /*
    * FILTER USER SESUAI KEBUTUHAN
    *
-   * CREATE  -> Applicant / Viewer
+   * LOGIN   -> Semua user
+   * CREATE  -> Applicant
    * REVIEW  -> Reviewer
    * APPROVE -> Approver
    */
 
-  const availableUsers =
-    users.filter(user => {
+/* =========================================================
+   AVAILABLE USERS
+========================================================= */
 
-      if (request?.action === "CREATE") {
-        return (
-          user.role === "APPLICANT" ||
-          user.role === "VIEWER"
-        );
-      }
+const availableUsers =
+  users.filter(user => {
 
-      if (request?.action === "REVIEW") {
-        return user.role === "REVIEWER";
-      }
+    /*
+     * LOGIN BIASA
+     * Semua user boleh muncul
+     *
+     * Applicant
+     * Reviewer
+     * Approver
+     * Viewer
+     */
 
-      if (request?.action === "APPROVE") {
-        return user.role === "APPROVER";
-      }
+    if (
+      request?.action === "LOGIN"
+    ) {
 
-      return false;
-    });
+      return true;
+
+    }
+
+
+    /*
+     * CREATE REQUEST
+     * Hanya user yang boleh
+     * membuat pengajuan.
+     */
+
+    if (
+      request?.action === "CREATE"
+    ) {
+
+      return (
+        user.role === "APPLICANT"
+      );
+
+    }
+
+
+    /*
+     * REVIEW
+     * Hanya Reviewer.
+     */
+
+    if (
+      request?.action === "REVIEW"
+    ) {
+
+      return (
+        user.role === "REVIEWER"
+      );
+
+    }
+
+
+    /*
+     * APPROVE
+     * Hanya Approver.
+     */
+
+    if (
+      request?.action === "APPROVE"
+    ) {
+
+      return (
+        user.role === "APPROVER"
+      );
+
+    }
+
+
+    return false;
+
+  });
 
 
   const handleContinue = () => {
