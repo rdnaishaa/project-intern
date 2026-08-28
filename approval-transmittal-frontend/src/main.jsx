@@ -959,6 +959,10 @@ function WhatsAppNotifications({
    APP
 ========================================================= */
 
+/* =========================================================
+   APP
+========================================================= */
+
 function App() {
 
   const [
@@ -975,16 +979,16 @@ function App() {
   ] =
     useState(
       INITIAL_DOCS
-      
     );
 
 
-    const [
-  whatsappNotifications,
-  setWhatsappNotifications
-] =
-  useState([]);
-  
+  const [
+    whatsappNotifications,
+    setWhatsappNotifications
+  ] =
+    useState([]);
+
+
   const [
     user,
     setUser
@@ -1016,7 +1020,12 @@ function App() {
 
 
   /*
-    Login/action modal.
+    LOGIN / AUTHORIZATION MODAL
+
+    Dipakai untuk:
+    1. Buat Pengajuan
+    2. Review
+    3. Approve
   */
 
   const [
@@ -1025,11 +1034,6 @@ function App() {
   ] =
     useState(null);
 
-
-  /*
-    User yang sudah berhasil login
-    dan sedang mengerjakan step.
-  */
 
   const [
     actionContext,
@@ -1061,6 +1065,7 @@ function App() {
       return value
         ? Number(value)
         : null;
+
     });
 
 
@@ -1096,6 +1101,7 @@ function App() {
         "",
         `?document=${id}`
       );
+
     };
 
 
@@ -1118,11 +1124,16 @@ function App() {
         null
       );
 
+      setAuthRequest(
+        null
+      );
+
       window.history.pushState(
         {},
         "",
         "?"
       );
+
     };
 
 
@@ -1141,44 +1152,109 @@ function App() {
         null
       );
 
+      setAuthRequest(
+        null
+      );
+
       window.history.pushState(
         {},
         "",
         `?verify=${id}`
       );
+
     };
 
-/* =========================================================
-   SEND DUMMY WHATSAPP
-========================================================= */
 
-function sendWhatsApp({
-  doc,
-  recipient,
-  type,
-  step = null
-}) {
+  /* =======================================================
+     OPEN CREATE REQUEST
+     
+     BUAT PENGAJUAN WAJIB LOGIN
+  ======================================================= */
 
-  if (!doc || !recipient) {
-    return;
+  function openCreateRequest() {
+
+    /*
+      Jika belum login,
+      buka AuthModal.
+    */
+
+    if (!user) {
+
+      setAuthRequest({
+
+        action:
+          "CREATE"
+
+      });
+
+      return;
+
+    }
+
+
+    /*
+      Jika sudah login,
+      langsung masuk form.
+    */
+
+    setCreating(
+      true
+    );
+
+    setPage(
+      "create"
+    );
+
   }
 
-  const notification =
-    createWhatsAppNotification({
-      doc,
-      recipient,
-      type,
-      step
-    });
 
-  setWhatsappNotifications(
-    current => [
-      notification,
-      ...current
-    ]
-  );
+  /* =========================================================
+     SEND DUMMY WHATSAPP
+  ========================================================= */
 
-}
+  function sendWhatsApp({
+    doc,
+    recipient,
+    type,
+    step = null
+  }) {
+
+    if (
+      !doc ||
+      !recipient
+    ) {
+
+      return;
+
+    }
+
+
+    const notification =
+      createWhatsAppNotification({
+
+        doc,
+
+        recipient,
+
+        type,
+
+        step
+
+      });
+
+
+    setWhatsappNotifications(
+      current => [
+
+        notification,
+
+        ...current
+
+      ]
+    );
+
+  }
+
 
   /* =======================================================
      CREATE REQUEST
@@ -1188,8 +1264,36 @@ function sendWhatsApp({
     data
   ) {
 
+    /*
+      Safety check.
+
+      Pengajuan tidak boleh dibuat
+      tanpa user login.
+    */
+
+    if (!user) {
+
+      alert(
+        "Silakan login terlebih dahulu untuk membuat pengajuan."
+      );
+
+
+      setAuthRequest({
+
+        action:
+          "CREATE"
+
+      });
+
+
+      return;
+
+    }
+
+
     const newId =
       Date.now();
+
 
     const now =
       new Date()
@@ -1209,31 +1313,44 @@ function sendWhatsApp({
 
       ...data,
 
+
       id:
         newId,
+
 
       submissionNo:
         no,
 
+
       applicantId:
-        data.applicantId,
+        user.id,
+
 
       applicantName:
-        data.applicantName,
+        user.name,
+
 
       createdAt:
         now,
 
+
       status:
         "IN_APPROVAL",
 
+
       approvedAt:
         null,
+
+
+      /*
+        QR dibuat sejak awal pengajuan.
+      */
 
       qr:
         verificationUrl(
           newId
         ),
+
 
       steps:
         data.approvalChain.map(
@@ -1245,34 +1362,44 @@ function sendWhatsApp({
             id:
               uid(),
 
+
             order:
               index + 1,
 
+
             role:
               item.role,
+
 
             approverId:
               Number(
                 item.id
               ),
 
+
             approverName:
               item.name,
+
 
             position:
               item.position,
 
+
             area:
               item.area,
+
 
             status:
               "WAITING",
 
+
             comment:
               "",
 
+
             signedAt:
               null,
+
 
             signature:
               null
@@ -1285,53 +1412,86 @@ function sendWhatsApp({
 
     setDocs(
       current => [
+
         newDoc,
+
         ...current
+
       ]
     );
 
-/* =====================================================
-   WHATSAPP:
-   KIRIM KE REVIEWER PERTAMA
-===================================================== */
 
-const firstStep =
-  newDoc.steps
-    .sort(
-      (a, b) =>
-        Number(a.order) -
-        Number(b.order)
-    )[0];
+    /* =====================================================
+       WHATSAPP
+       KIRIM KE REVIEWER / APPROVER PERTAMA
+    ===================================================== */
+
+    const firstStep =
+      [
+        ...newDoc.steps
+      ]
+        .sort(
+          (
+            a,
+            b
+          ) =>
+            Number(a.order) -
+            Number(b.order)
+        )[0];
 
 
-  if (firstStep) {
+    if (
+      firstStep
+    ) {
 
-    const firstReviewer =
-      users.find(
-        user =>
-          String(user.id) ===
-          String(firstStep.approverId)
-      );
+      const firstReviewer =
+        users.find(
+          user =>
+            String(user.id) ===
+            String(
+              firstStep.approverId
+            )
+        );
 
-    if (firstReviewer) {
 
-      sendWhatsApp({
-        doc: newDoc,
-        recipient: firstReviewer,
-        type:
-          firstStep.role === "REVIEWER"
-            ? "SUBMITTED"
-            : "NEXT_APPROVER",
-        step: firstStep
-      });
+      if (
+        firstReviewer
+      ) {
+
+        sendWhatsApp({
+
+          doc:
+            newDoc,
+
+
+          recipient:
+            firstReviewer,
+
+
+          type:
+            firstStep.role ===
+            "REVIEWER"
+
+              ? "SUBMITTED"
+
+              : "NEXT_APPROVER",
+
+
+          step:
+            firstStep
+
+        });
+
+      }
 
     }
-  }
 
-  open(
-    newId
-  );
-}
+
+    open(
+      newId
+    );
+
+  }
 
 
   /* =======================================================
@@ -1347,7 +1507,9 @@ const firstStep =
       !doc ||
       !step
     ) {
+
       return;
+
     }
 
 
@@ -1356,16 +1518,21 @@ const firstStep =
       docId:
         doc.id,
 
+
       stepId:
         step.id,
+
 
       action:
         step.role ===
         "REVIEWER"
+
           ? "REVIEW"
+
           : "APPROVE"
 
     });
+
   }
 
 
@@ -1373,108 +1540,251 @@ const firstStep =
      AUTHORIZE ACTION
   ======================================================= */
 
-function authorizeAction(selectedUserId) {
-  if (!authRequest) {
-    return;
-  }
-
-  const doc = docs.find(
-    item =>
-      String(item.id) ===
-      String(authRequest.docId)
-  );
-
-  if (!doc) {
-    alert("Dokumen tidak ditemukan.");
-    return;
-  }
-
-  // Ambil step yang benar-benar sedang aktif
-  const activeStep = getCurrentStep(doc);
-
-  if (!activeStep) {
-    alert(
-      "Tidak ada approval yang sedang menunggu."
-    );
-    return;
-  }
-
-  // Cari user yang dipilih dari database
-  const selectedUser = users.find(
-    item =>
-      String(item.id) ===
-      String(selectedUserId)
-  );
-
-  if (!selectedUser) {
-    alert("User tidak ditemukan.");
-    return;
-  }
-
-  /*
-   * USER YANG DIPILIH HARUS SAMA
-   * DENGAN USER YANG DITUGASKAN
-   */
-  const assignedUserId =
-    activeStep.approverId ??
-    activeStep.assignedUserId;
-
-  const sameUser =
-    String(selectedUser.id) ===
-    String(assignedUserId);
-
-  /*
-   * Fallback nama untuk data lama
-   */
-  const sameName =
-    selectedUser.name?.trim().toLowerCase() ===
-    activeStep.approverName?.trim().toLowerCase();
-
-  if (!sameUser && !sameName) {
-    alert(
-      `Access Denied.\n\n` +
-      `Dokumen saat ini menunggu:\n` +
-      `${activeStep.approverName}\n` +
-      `${activeStep.role}\n` +
-      `${activeStep.position}\n` +
-      `${activeStep.area}`
-    );
-
-    return;
-  }
-
-  /*
-   * Pastikan step yang dipilih memang
-   * step yang sedang aktif.
-   */
-  if (
-    String(activeStep.id) !==
-    String(
-      getCurrentStep(doc)?.id
-    )
+  function authorizeAction(
+    selectedUserId
   ) {
-    alert(
-      "Approval sebelumnya belum selesai."
+
+    if (
+      !authRequest
+    ) {
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       CARI USER DARI DATABASE
+    ===================================================== */
+
+    const selectedUser =
+      users.find(
+        item =>
+          String(item.id) ===
+          String(selectedUserId)
+      );
+
+
+    if (
+      !selectedUser
+    ) {
+
+      alert(
+        "User tidak ditemukan."
+      );
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       CREATE REQUEST
+       
+       LOGIN UNTUK MEMBUAT PENGAJUAN
+    ===================================================== */
+
+    if (
+      authRequest.action ===
+      "CREATE"
+    ) {
+
+      /*
+        User berhasil login.
+      */
+
+      setUser(
+        selectedUser
+      );
+
+
+      /*
+        Tutup modal.
+      */
+
+      setAuthRequest(
+        null
+      );
+
+
+      /*
+        Masuk ke form pengajuan.
+      */
+
+      setCreating(
+        true
+      );
+
+
+      setPage(
+        "create"
+      );
+
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       REVIEW / APPROVAL
+    ===================================================== */
+
+    const doc =
+      docs.find(
+        item =>
+          String(item.id) ===
+          String(
+            authRequest.docId
+          )
+      );
+
+
+    if (
+      !doc
+    ) {
+
+      alert(
+        "Dokumen tidak ditemukan."
+      );
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       AMBIL STEP AKTIF
+    ===================================================== */
+
+    const activeStep =
+      getCurrentStep(
+        doc
+      );
+
+
+    if (
+      !activeStep
+    ) {
+
+      alert(
+        "Tidak ada approval yang sedang menunggu."
+      );
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       USER HARUS SESUAI DENGAN ASSIGNEE
+    ===================================================== */
+
+    const assignedUserId =
+      activeStep.approverId ??
+      activeStep.assignedUserId;
+
+
+    const sameUser =
+      String(
+        selectedUser.id
+      ) ===
+      String(
+        assignedUserId
+      );
+
+
+    /*
+      Fallback nama
+      untuk data lama.
+    */
+
+    const sameName =
+      selectedUser.name
+        ?.trim()
+        .toLowerCase() ===
+      activeStep.approverName
+        ?.trim()
+        .toLowerCase();
+
+
+    if (
+      !sameUser &&
+      !sameName
+    ) {
+
+      alert(
+
+        `Access Denied.\n\n` +
+
+        `Dokumen saat ini menunggu:\n` +
+
+        `${activeStep.approverName}\n` +
+
+        `${activeStep.role}\n` +
+
+        `${activeStep.position}\n` +
+
+        `${activeStep.area}`
+
+      );
+
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       PASTIKAN STEP MEMANG AKTIF
+    ===================================================== */
+
+    if (
+      String(
+        activeStep.id
+      ) !==
+      String(
+        getCurrentStep(
+          doc
+        )?.id
+      )
+    ) {
+
+      alert(
+        "Approval sebelumnya belum selesai."
+      );
+
+      return;
+
+    }
+
+
+    /* =====================================================
+       LOGIN APPROVER / REVIEWER BERHASIL
+    ===================================================== */
+
+    setUser(
+      selectedUser
     );
 
-    return;
+
+    setActionContext({
+
+      docId:
+        doc.id,
+
+
+      stepId:
+        activeStep.id
+
+    });
+
+
+    setAuthRequest(
+      null
+    );
+
   }
-
-  /*
-   * LOGIN BERHASIL
-   *
-   * User sekarang masuk ke halaman
-   * Review / Approval + Signature.
-   */
-  setUser(selectedUser);
-
-  setActionContext({
-    docId: doc.id,
-    stepId: activeStep.id
-  });
-
-  setAuthRequest(null);
-}
 
 
   /* =======================================================
@@ -1503,7 +1813,9 @@ function authorizeAction(selectedUserId) {
                 docId
               )
             ) {
+
               return doc;
+
             }
 
 
@@ -1517,10 +1829,16 @@ function authorizeAction(selectedUserId) {
                 step => {
 
                   if (
-                    String(step.id) !==
-                    String(stepId)
+                    String(
+                      step.id
+                    ) !==
+                    String(
+                      stepId
+                    )
                   ) {
+
                     return step;
+
                   }
 
 
@@ -1528,43 +1846,52 @@ function authorizeAction(selectedUserId) {
 
                     ...step,
 
+
                     status:
                       action ===
                       "APPROVE"
+
                         ? "APPROVED"
+
                         : "REJECTED",
+
 
                     comment:
                       comment ||
                       "",
 
+
                     signedAt:
                       action ===
                       "APPROVE"
+
                         ? now
+
                         : null,
 
+
                     /*
-                      INI YANG MENYIMPAN
-                      GAMBAR TTD.
+                      Simpan gambar TTD.
                     */
 
                     signature:
                       action ===
                       "APPROVE"
+
                         ? signature
+
                         : null
 
                   };
 
                 }
+
               );
 
 
-            /*
-              Kalau reject,
-              langsung berhenti.
-            */
+            /* =================================================
+               REJECT
+            ================================================= */
 
             if (
               action ===
@@ -1572,38 +1899,57 @@ function authorizeAction(selectedUserId) {
             ) {
 
               const applicant =
-  users.find(
-    user =>
-      String(user.id) ===
-      String(doc.applicantId)
-  );
+                users.find(
+                  user =>
+                    String(
+                      user.id
+                    ) ===
+                    String(
+                      doc.applicantId
+                    )
+                );
 
 
-if (applicant) {
+              if (
+                applicant
+              ) {
 
-  sendWhatsApp({
+                sendWhatsApp({
 
-    doc: {
-      ...doc,
-      steps: updatedSteps
-    },
+                  doc: {
 
-    recipient:
-      applicant,
+                    ...doc,
 
-    type:
-      "REJECTED",
+                    steps:
+                      updatedSteps
 
-    step:
-      doc.steps.find(
-        step =>
-          String(step.id) ===
-          String(stepId)
-      )
+                  },
 
-  });
 
-}
+                  recipient:
+                    applicant,
+
+
+                  type:
+                    "REJECTED",
+
+
+                  step:
+                    doc.steps.find(
+                      step =>
+                        String(
+                          step.id
+                        ) ===
+                        String(
+                          stepId
+                        )
+                    )
+
+                });
+
+              }
+
+
               return {
 
                 ...doc,
@@ -1618,12 +1964,13 @@ if (applicant) {
                   null
 
               };
+
             }
 
 
-            /*
-              Cek apakah semua selesai.
-            */
+            /* =================================================
+               CEK APAKAH SEMUA SELESAI
+            ================================================= */
 
             const allApproved =
               updatedSteps.every(
@@ -1632,122 +1979,168 @@ if (applicant) {
                   "APPROVED"
               );
 
-/* =====================================================
-   WHATSAPP NEXT APPROVAL
-===================================================== */
 
-if (
-  action === "APPROVE"
-) {
+            /* =================================================
+               WHATSAPP NEXT APPROVAL
+            ================================================= */
 
-  const nextStep =
-    updatedSteps
-      .filter(
-        step =>
-          step.status ===
-          "WAITING"
-      )
-      .sort(
-        (a, b) =>
-          Number(a.order) -
-          Number(b.order)
-      )[0];
+            if (
+              action ===
+              "APPROVE"
+            ) {
 
-
-  if (nextStep) {
-
-    const nextUser =
-      users.find(
-        user =>
-          String(user.id) ===
-          String(
-            nextStep.approverId
-          )
-      );
+              const nextStep =
+                updatedSteps
+                  .filter(
+                    step =>
+                      step.status ===
+                      "WAITING"
+                  )
+                  .sort(
+                    (
+                      a,
+                      b
+                    ) =>
+                      Number(a.order) -
+                      Number(b.order)
+                  )[0];
 
 
-    if (nextUser) {
+              if (
+                nextStep
+              ) {
 
-      sendWhatsApp({
-
-        doc: {
-          ...doc,
-          steps: updatedSteps
-        },
-
-        recipient:
-          nextUser,
-
-        type:
-          nextStep.role ===
-          "REVIEWER"
-
-            ? "NEXT_REVIEWER"
-
-            : "NEXT_APPROVER",
-
-        step:
-          nextStep
-
-      });
-
-    }
-
-  }
+                const nextUser =
+                  users.find(
+                    user =>
+                      String(
+                        user.id
+                      ) ===
+                      String(
+                        nextStep.approverId
+                      )
+                  );
 
 
-  /* ================================================
-     SEMUA SELESAI
-  ================================================ */
+                if (
+                  nextUser
+                ) {
 
-  if (allApproved) {
+                  sendWhatsApp({
 
-    const applicant =
-      users.find(
-        user =>
-          String(user.id) ===
-          String(doc.applicantId)
-      );
+                    doc: {
+
+                      ...doc,
+
+                      steps:
+                        updatedSteps
+
+                    },
 
 
-    if (applicant) {
+                    recipient:
+                      nextUser,
 
-      sendWhatsApp({
 
-        doc: {
-          ...doc,
-          steps: updatedSteps
-        },
+                    type:
+                      nextStep.role ===
+                      "REVIEWER"
 
-        recipient:
-          applicant,
+                        ? "NEXT_REVIEWER"
 
-        type:
-          "COMPLETED"
+                        : "NEXT_APPROVER",
 
-      });
 
-    }
+                    step:
+                      nextStep
 
-  }
+                  });
 
-}
+                }
+
+              }
+
+            }
+
+
+            /* =================================================
+               SEMUA APPROVED
+            ================================================= */
+
+            if (
+              allApproved
+            ) {
+
+              const applicant =
+                users.find(
+                  user =>
+                    String(
+                      user.id
+                    ) ===
+                    String(
+                      doc.applicantId
+                    )
+                );
+
+
+              if (
+                applicant
+              ) {
+
+                sendWhatsApp({
+
+                  doc: {
+
+                    ...doc,
+
+                    steps:
+                      updatedSteps
+
+                  },
+
+
+                  recipient:
+                    applicant,
+
+
+                  type:
+                    "COMPLETED"
+
+                });
+
+              }
+
+            }
+
+
             return {
 
               ...doc,
 
+
               steps:
                 updatedSteps,
 
+
               status:
                 allApproved
+
                   ? "APPROVED"
+
                   : "IN_APPROVAL",
+
 
               approvedAt:
                 allApproved
+
                   ? now
+
                   : null,
+
+
+              /*
+                QR tetap ada dari awal.
+              */
 
               qr:
                 doc.qr ||
@@ -1758,13 +2151,16 @@ if (
             };
 
           }
+
         )
+
     );
 
 
     setActionContext(
       null
     );
+
   }
 
 
@@ -1802,8 +2198,12 @@ if (
     actionDoc
       ? actionDoc.steps.find(
           step =>
-            String(step.id) ===
-            String(actionContext.stepId)
+            String(
+              step.id
+            ) ===
+            String(
+              actionContext.stepId
+            )
         )
       : null;
 
@@ -1836,11 +2236,13 @@ if (
           verificationDoc
         }
 
+
         onBack={() =>
           go(
             "dashboard"
           )
         }
+
 
         openDocument={
           open
@@ -1849,6 +2251,7 @@ if (
       />
 
     );
+
   }
 
 
@@ -1869,6 +2272,7 @@ if (
           currentDoc
         }
 
+
         onBack={() =>
           setPreviewFinal(
             false
@@ -1878,6 +2282,7 @@ if (
       />
 
     );
+
   }
 
 
@@ -1887,6 +2292,10 @@ if (
 
   let content;
 
+
+  /* =======================================================
+     CREATE
+  ======================================================= */
 
   if (
     creating
@@ -1900,9 +2309,14 @@ if (
           users
         }
 
+        currentUser={
+            user
+          }
+
         onSubmit={
           submitRequest
         }
+
 
         onCancel={() =>
           go(
@@ -1915,6 +2329,11 @@ if (
     );
 
   }
+
+
+  /* =======================================================
+     DASHBOARD
+  ======================================================= */
 
   else if (
     page ===
@@ -1929,6 +2348,7 @@ if (
           docs
         }
 
+
         open={
           open
         }
@@ -1938,6 +2358,11 @@ if (
     );
 
   }
+
+
+  /* =======================================================
+     REQUESTS
+  ======================================================= */
 
   else if (
     page ===
@@ -1952,14 +2377,14 @@ if (
           docs
         }
 
+
         open={
           open
         }
 
-        create={() =>
-          setCreating(
-            true
-          )
+
+        create={
+          openCreateRequest
         }
 
       />
@@ -1967,6 +2392,11 @@ if (
     );
 
   }
+
+
+  /* =======================================================
+     APPROVALS
+  ======================================================= */
 
   else if (
     page ===
@@ -1981,9 +2411,11 @@ if (
           user
         }
 
+
         docs={
           docs
         }
+
 
         open={
           open
@@ -1995,9 +2427,15 @@ if (
 
   }
 
-else if (
-  page === "notifications"
-) {
+
+  /* =======================================================
+     NOTIFICATIONS
+  ======================================================= */
+
+  else if (
+    page ===
+    "notifications"
+  ) {
 
     content = (
 
@@ -2006,6 +2444,7 @@ else if (
         notifications={
           whatsappNotifications
         }
+
 
         onOpen={
           open
@@ -2017,6 +2456,11 @@ else if (
 
   }
 
+
+  /* =======================================================
+     DETAIL
+  ======================================================= */
+
   else {
 
     content = (
@@ -2027,9 +2471,11 @@ else if (
           user
         }
 
+
         doc={
           currentDoc
         }
+
 
         actionUser={
           actionContext
@@ -2037,9 +2483,11 @@ else if (
             : null
         }
 
+
         actionStep={
           actionStep
         }
+
 
         onBack={() =>
           go(
@@ -2047,19 +2495,23 @@ else if (
           )
         }
 
+
         onRequestAction={
           requestApprovalAction
         }
 
+
         onApprove={
           approvalAction
         }
+
 
         verify={() =>
           openVerification(
             currentDoc?.id
           )
         }
+
 
         onPreviewFinal={() =>
           setPreviewFinal(
@@ -2070,8 +2522,13 @@ else if (
       />
 
     );
+
   }
 
+
+  /* =======================================================
+     RETURN
+  ======================================================= */
 
   return (
 
@@ -2083,13 +2540,16 @@ else if (
           user
         }
 
+
         setUser={
           setUser
         }
 
+
         page={
           page
         }
+
 
         go={
           go
@@ -2102,6 +2562,10 @@ else if (
       </Layout>
 
 
+      {/* =================================================
+          AUTH MODAL
+      ================================================= */}
+
       {authRequest && (
 
         <AuthModal
@@ -2110,15 +2574,18 @@ else if (
             users
           }
 
+
           request={
             authRequest
           }
+
 
           onClose={() =>
             setAuthRequest(
               null
             )
           }
+
 
           onContinue={
             authorizeAction
@@ -2131,6 +2598,7 @@ else if (
     </>
 
   );
+
 }
 
 
@@ -2789,11 +3257,9 @@ function Requests({
 
 
         <button
-          className="btn-primary"
-          onClick={
-            create
-          }
-        >
+  onClick={create}
+  className="btn-primary"
+>
 
           <FileText
             size={17}
@@ -3082,6 +3548,7 @@ function DocumentTable({
 
 function CreateRequest({
   users,
+  currentUser,
   onSubmit,
   onCancel
 }) {
@@ -3090,15 +3557,6 @@ function CreateRequest({
     PEMOHON
     Diambil dari database / MASTER_USERS.
   */
-
-  const applicants =
-    users.filter(
-      user =>
-        [
-          "APPLICANT",
-          "VIEWER"
-        ].includes(user.role)
-    );
 
 
   /*
@@ -3130,12 +3588,6 @@ function CreateRequest({
   /* =======================================================
      STATE
   ======================================================= */
-
-  const [
-    applicantId,
-    setApplicantId
-  ] = useState("");
-
 
   const [
     form,
@@ -3192,19 +3644,6 @@ function CreateRequest({
     approverIds,
     setApproverIds
   ] = useState([]);
-
-
-  /* =======================================================
-     SELECTED APPLICANT
-  ======================================================= */
-
-  const selectedApplicant =
-    users.find(
-      user =>
-        Number(user.id) ===
-        Number(applicantId)
-    );
-
 
   /* =======================================================
      ADD REVIEWER
@@ -3376,16 +3815,13 @@ function CreateRequest({
         VALIDASI PEMOHON
       */
 
-      if (
-        !selectedApplicant
-      ) {
+      if (!currentUser) {
+  alert(
+    "User belum login. Silakan login terlebih dahulu."
+  );
 
-        alert(
-          "Pilih nama pemohon terlebih dahulu."
-        );
-
-        return;
-      }
+  return;
+}
 
 
       /*
@@ -3523,23 +3959,23 @@ function CreateRequest({
 
       onSubmit({
 
-        ...form,
+  ...form,
 
-        applicantId:
-          selectedApplicant.id,
+  applicantId:
+    currentUser.id,
 
-        applicantName:
-          selectedApplicant.name,
+  applicantName:
+    currentUser.name,
 
-        file,
+  file,
 
-        approvalChain:
-          [
-            ...reviewers,
-            ...approvers
-          ]
+  approvalChain:
+    [
+      ...reviewers,
+      ...approvers
+    ]
 
-      });
+});
 
     };
 
@@ -3605,218 +4041,214 @@ function CreateRequest({
       </div>
 
 
-      {/* =================================================
-          APPLICANT
-      ================================================= */}
+     {/* =================================================
+    APPLICANT
+================================================= */}
 
-      <div
-        className="
-          card
-          p-5
-        "
-      >
+<div
+  className="
+    card
+    p-5
+  "
+>
 
-        <h2
-          className="
-            font-bold
-          "
-        >
-          Pemohon
-        </h2>
+  <h2
+    className="
+      font-bold
+    "
+  >
+    Pemohon
+  </h2>
 
+
+  <div
+    className="
+      mt-4
+    "
+  >
+
+    <label
+      className="
+        label
+      "
+    >
+      Nama Pemohon
+    </label>
+
+
+    {/* =================================================
+        NAMA PEMOHON OTOMATIS DARI USER YANG LOGIN
+    ================================================= */}
+
+    <div
+      className="
+        input
+        flex
+        items-center
+        justify-between
+        bg-slate-50
+      "
+    >
+
+      <div>
 
         <div
           className="
-            mt-4
+            font-medium
+            text-slate-800
           "
         >
-
-          <label
-            className="
-              label
-            "
-          >
-            Nama Pemohon
-          </label>
-
-
-          <select
-            className="
-              input
-            "
-            value={
-              applicantId
-            }
-            onChange={
-              e => {
-
-                const id =
-                  Number(
-                    e.target.value
-                  );
-
-                setApplicantId(
-                  id
-                );
-
-
-                const selected =
-                  users.find(
-                    user =>
-                      Number(
-                        user.id
-                      ) === id
-                  );
-
-
-                if (
-                  selected
-                ) {
-
-                  setForm(
-                    current => ({
-
-                      ...current,
-
-                      department:
-                        selected.department,
-
-                      area:
-                        selected.area
-
-                    })
-                  );
-
-                }
-
-              }
-            }
-          >
-
-            <option
-              value=""
-            >
-              Pilih nama dari database...
-            </option>
-
-
-            {applicants.map(
-              user => (
-
-                <option
-                  key={
-                    user.id
-                  }
-                  value={
-                    user.id
-                  }
-                >
-
-                  {
-                    user.name
-                  }
-
-                  {" — "}
-
-                  {
-                    user.position
-                  }
-
-                  {" · "}
-
-                  {
-                    user.area
-                  }
-
-                </option>
-
-              )
-            )}
-
-          </select>
-
+          {
+            currentUser?.name ||
+            "User belum login"
+          }
         </div>
 
 
-        {selectedApplicant && (
+        {currentUser && (
 
           <div
             className="
-              mt-4
-              grid
-              gap-3
-              rounded-xl
-              bg-slate-50
-              p-4
-              text-sm
-              sm:grid-cols-3
+              mt-1
+              text-xs
+              text-slate-400
             "
           >
 
-            <div>
+            {
+              currentUser.position
+            }
 
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                NIK
-              </div>
+            {" · "}
 
-              <b>
-                {
-                  selectedApplicant.nik
-                }
-              </b>
-
-            </div>
-
-
-            <div>
-
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                Department
-              </div>
-
-              <b>
-                {
-                  selectedApplicant.department
-                }
-              </b>
-
-            </div>
-
-
-            <div>
-
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                Area
-              </div>
-
-              <b>
-                {
-                  selectedApplicant.area
-                }
-              </b>
-
-            </div>
+            {
+              currentUser.area
+            }
 
           </div>
 
         )}
 
       </div>
+
+
+      {/* Badge login */}
+
+      {currentUser && (
+
+        <span
+          className="
+            rounded-full
+            bg-green-100
+            px-3
+            py-1
+            text-xs
+            font-medium
+            text-green-700
+          "
+        >
+          Logged in
+        </span>
+
+      )}
+
+    </div>
+
+  </div>
+
+
+  {/* =================================================
+      DETAIL USER
+  ================================================= */}
+
+  {currentUser && (
+
+    <div
+      className="
+        mt-4
+        grid
+        gap-3
+        rounded-xl
+        bg-slate-50
+        p-4
+        text-sm
+        sm:grid-cols-3
+      "
+    >
+
+      {/* NIK */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          NIK
+        </div>
+
+        <b>
+          {
+            currentUser.nik ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+
+      {/* Department */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          Department
+        </div>
+
+        <b>
+          {
+            currentUser.department ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+
+      {/* Area */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          Area
+        </div>
+
+        <b>
+          {
+            currentUser.area ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+    </div>
+
+  )}
+
+</div>
 
 
       {/* =================================================
@@ -6471,6 +6903,10 @@ function ActionMode({
    AUTH MODAL
 ========================================================= */
 
+/* =========================================================
+   AUTH MODAL
+========================================================= */
+
 function AuthModal({
   users,
   request,
@@ -6478,18 +6914,89 @@ function AuthModal({
   onContinue
 }) {
 
-  const [
-    selectedId,
-    setSelectedId
-  ] =
+  const [selectedUserId, setSelectedUserId] =
     useState("");
 
+  /*
+   * FILTER USER SESUAI KEBUTUHAN
+   *
+   * CREATE  -> Applicant / Viewer
+   * REVIEW  -> Reviewer
+   * APPROVE -> Approver
+   */
 
-  const actionText =
-    request.action ===
-    "REVIEW"
-      ? "Review"
-      : "Approve";
+  const availableUsers =
+    users.filter(user => {
+
+      if (request?.action === "CREATE") {
+        return (
+          user.role === "APPLICANT" ||
+          user.role === "VIEWER"
+        );
+      }
+
+      if (request?.action === "REVIEW") {
+        return user.role === "REVIEWER";
+      }
+
+      if (request?.action === "APPROVE") {
+        return user.role === "APPROVER";
+      }
+
+      return false;
+    });
+
+
+  const handleContinue = () => {
+
+    if (!selectedUserId) {
+      alert(
+        "Silakan pilih nama terlebih dahulu."
+      );
+
+      return;
+    }
+
+    onContinue(
+      Number(selectedUserId)
+    );
+  };
+
+
+  const getTitle = () => {
+
+    if (request?.action === "CREATE") {
+      return "Login untuk Membuat Pengajuan";
+    }
+
+    if (request?.action === "REVIEW") {
+      return "Login untuk Review";
+    }
+
+    if (request?.action === "APPROVE") {
+      return "Login untuk Approval";
+    }
+
+    return "Login";
+  };
+
+
+  const getDescription = () => {
+
+    if (request?.action === "CREATE") {
+      return "Pilih user yang akan membuat pengajuan.";
+    }
+
+    if (request?.action === "REVIEW") {
+      return "Pilih reviewer yang ditugaskan pada dokumen.";
+    }
+
+    if (request?.action === "APPROVE") {
+      return "Pilih approver yang ditugaskan pada dokumen.";
+    }
+
+    return "Pilih user untuk melanjutkan.";
+  };
 
 
   return (
@@ -6502,11 +7009,8 @@ function AuthModal({
         grid
         place-items-center
         bg-slate-900/40
-        p-5
+        p-4
       "
-      onMouseDown={
-        onClose
-      }
     >
 
       <div
@@ -6514,205 +7018,222 @@ function AuthModal({
           w-full
           max-w-md
           rounded-2xl
-          border
-          border-slate-200
           bg-white
           p-6
-          shadow-2xl
+          shadow-xl
         "
-        onMouseDown={
-          event =>
-            event.stopPropagation()
-        }
       >
 
-        <div
-          className="
-            flex
-            items-start
-            justify-between
-            gap-3
-          "
-        >
+        {/* HEADER */}
 
-          <div>
+        <div className="mb-5">
 
-            <div
-              className="
-                grid
-                h-11
-                w-11
-                place-items-center
-                rounded-xl
-                bg-blue-50
-                text-[#1261A0]
-              "
-            >
-              <ShieldCheck />
-            </div>
-
-
-            <h2
-              className="
-                mt-4
-                text-xl
-                font-extrabold
-              "
-            >
-              Login untuk{" "}
-              {
-                actionText
-              }
-            </h2>
-
-
-            <p
-              className="
-                mt-1
-                text-sm
-                text-slate-500
-              "
-            >
-              Pilih nama user dari
-              database untuk melanjutkan.
-            </p>
-
-          </div>
-
-
-          <button
-            onClick={
-              onClose
-            }
+          <h2
             className="
-              text-slate-400
+              text-xl
+              font-extrabold
+              text-slate-900
             "
           >
-            <X />
-          </button>
+            {getTitle()}
+          </h2>
+
+          <p
+            className="
+              mt-1
+              text-sm
+              text-slate-500
+            "
+          >
+            {getDescription()}
+          </p>
 
         </div>
 
 
-        <div
-          className="
-            mt-5
-          "
-        >
+        {/* USER SELECT */}
+
+        <div>
 
           <label
             className="
               label
             "
           >
-            Nama User
+            Nama Pengguna
           </label>
 
 
           <select
-
             className="
               input
+              mt-1
             "
-
             value={
-              selectedId
+              selectedUserId
             }
-
-            onChange={e =>
-              setSelectedId(
-                e.target.value
-              )
+            onChange={
+              e =>
+                setSelectedUserId(
+                  e.target.value
+                )
             }
           >
 
-            <option
-              value=""
-            >
-              Pilih user...
+            <option value="">
+              Pilih nama pengguna...
             </option>
 
 
-            {users
-              .filter(
-                user =>
-                  user.role ===
-                    "REVIEWER" ||
-                  user.role ===
-                    "APPROVER"
+            {availableUsers.map(
+              user => (
+
+                <option
+                  key={
+                    user.id
+                  }
+                  value={
+                    user.id
+                  }
+                >
+
+                  {user.name}
+
+                  {" — "}
+
+                  {user.position}
+
+                  {" · "}
+
+                  {user.area}
+
+                </option>
+
               )
-              .map(
-                user => (
-
-                  <option
-
-                    key={
-                      user.id
-                    }
-
-                    value={
-                      user.id
-                    }
-                  >
-
-                    {
-                      user.name
-                    }
-
-                    {" — "}
-
-                    {
-                      user.position
-                    }
-
-                    {" · "}
-
-                    {
-                      user.area
-                    }
-
-                  </option>
-
-                )
-              )}
+            )}
 
           </select>
 
         </div>
 
 
-        <button
+        {/* INFO USER */}
 
-          disabled={
-            !selectedId
-          }
+        {selectedUserId && (
 
-          onClick={() =>
-            onContinue(
-              selectedId
-            )
-          }
+          <div
+            className="
+              mt-4
+              rounded-xl
+              bg-slate-50
+              p-4
+              text-sm
+            "
+          >
 
+            {(() => {
+
+              const selectedUser =
+                users.find(
+                  user =>
+                    Number(user.id) ===
+                    Number(selectedUserId)
+                );
+
+              if (!selectedUser) {
+                return null;
+              }
+
+              return (
+
+                <>
+
+                  <div
+                    className="
+                      font-bold
+                      text-slate-800
+                    "
+                  >
+                    {selectedUser.name}
+                  </div>
+
+                  <div
+                    className="
+                      mt-1
+                      text-xs
+                      text-slate-500
+                    "
+                  >
+                    NIK:{" "}
+                    {selectedUser.nik}
+                  </div>
+
+                  <div
+                    className="
+                      text-xs
+                      text-slate-500
+                    "
+                  >
+                    {selectedUser.position}
+                    {" · "}
+                    {selectedUser.department}
+                    {" · "}
+                    {selectedUser.area}
+                  </div>
+
+                </>
+
+              );
+
+            })()}
+
+          </div>
+
+        )}
+
+
+        {/* BUTTON */}
+
+        <div
           className="
-            btn-primary
-            mt-5
-            w-full
-            disabled:cursor-not-allowed
-            disabled:opacity-50
+            mt-6
+            flex
+            justify-end
+            gap-2
           "
         >
 
-          Lanjutkan
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            className="
+              btn-secondary
+            "
+          >
+            Batal
+          </button>
 
-          <ChevronRight
-            size={17}
-          />
 
-        </button>
+          <button
+            type="button"
+            onClick={
+              handleContinue
+            }
+            className="
+              btn-primary
+            "
+          >
+            Lanjutkan
+          </button>
+
+        </div>
 
       </div>
 
     </div>
+
   );
 }
 
