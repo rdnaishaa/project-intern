@@ -1398,58 +1398,19 @@ function App() {
         .toISOString();
 
 
-    const revisionCount =
-      data.requestType === "REVISION"
-        ? docs.filter(
-            doc =>
-              Number(
-                doc.revisionOfId
-              ) ===
-              Number(
-                data.revisionOfId
-              )
-          ).length + 1
-        : 0;
-
     const no =
-      data.requestType === "REVISION"
-        ? `TR-2026-${String(
-            docs.length + 1
-          ).padStart(
-            3,
-            "0"
-          )}-R${String(
-            revisionCount
-          ).padStart(
-            2,
-            "0"
-          )}`
-        : `TR-2026-${String(
-            docs.length + 1
-          ).padStart(
-            3,
-            "0"
-          )}`;
+      `TR-2026-${String(
+        docs.length + 1
+      ).padStart(
+        3,
+        "0"
+      )}`;
 
 
     const newDoc = {
 
       ...data,
 
-      requestType:
-        data.requestType ||
-        "NEW",
-
-      revisionOfId:
-        data.revisionOfId
-          ? Number(
-              data.revisionOfId
-            )
-          : null,
-
-      revisionOfSubmissionNo:
-        data.revisionOfSubmissionNo ||
-        null,
 
       id:
         newId,
@@ -2465,10 +2426,6 @@ if (
 
         users={
           users
-        }
-
-        docs={
-          docs
         }
 
         currentUser={
@@ -3730,196 +3687,118 @@ function DocumentTable({
 
 function CreateRequest({
   users,
-  docs,
   currentUser,
   onSubmit,
   onCancel
 }) {
-  /*
-    Reviewer dan Approver sama-sama mengambil
-    SEMUA USER dari master database.
 
-    Role pada user bukan penentu apakah dia
-    Reviewer / Approver. Role ditentukan oleh
-    posisi user di approval chain.
+  /*
+    PEMOHON
+    Diambil dari database / MASTER_USERS.
   */
-  const availableUsers =
+
+
+  /*
+    REVIEWER
+    Hanya user dengan role REVIEWER
+    yang muncul di dropdown Reviewer.
+  */
+
+  const reviewerUsers =
     users.filter(
       user =>
-        user.active !== false
+        user.role === "REVIEWER"
     );
 
-  const revisionDocs =
-    currentUser
-      ? docs.filter(
-          doc =>
-            String(doc.applicantId) ===
-              String(currentUser.id) &&
-            doc.status === "REJECTED"
-        )
-      : [];
+
+  /*
+    APPROVER
+    Hanya user dengan role APPROVER
+    yang muncul di dropdown Approver.
+  */
+
+  const approverUsers =
+    users.filter(
+      user =>
+        user.role === "APPROVER"
+    );
+
+
+  /* =======================================================
+     STATE
+  ======================================================= */
 
   const [
     form,
     setForm
   ] = useState({
-    requestType: "NEW",
-    revisionOfId: "",
-    type: "Transmittal",
-    title: "",
-    description: "",
-    department: "",
-    area: "",
-    fileName: "",
-    documentLink: ""
+
+    type:
+      "Transmittal",
+
+    title:
+      "",
+
+    description:
+      "",
+
+    department:
+      "",
+
+    area:
+      "",
+
+    fileName:
+      "",
+
+    documentLink:
+      ""
+
   });
+
 
   const [
     file,
     setFile
   ] = useState(null);
 
+
+  /*
+    Menyimpan ID Reviewer
+    sesuai urutan dipilih.
+  */
+
   const [
     reviewerIds,
     setReviewerIds
   ] = useState([]);
+
+
+  /*
+    Menyimpan ID Approver
+    sesuai urutan dipilih.
+  */
 
   const [
     approverIds,
     setApproverIds
   ] = useState([]);
 
-  /*
-    Ketika memilih dokumen untuk revisi,
-    data dokumen sebelumnya dipakai sebagai
-    template agar pemohon tidak perlu mengisi
-    semuanya dari awal.
-  */
-  const handleRevisionChange =
-    id => {
-      if (!id) {
-        setForm(current => ({
-          ...current,
-          revisionOfId: "",
-          type: "Transmittal",
-          title: "",
-          description: "",
-          department: "",
-          area: "",
-          fileName: "",
-          documentLink: ""
-        }));
-
-        setFile(null);
-        setReviewerIds([]);
-        setApproverIds([]);
-        return;
-      }
-
-      const previousDoc =
-        docs.find(
-          doc =>
-            String(doc.id) ===
-            String(id)
-        );
-
-      if (!previousDoc) {
-        return;
-      }
-
-      setForm({
-        requestType: "REVISION",
-        revisionOfId:
-          String(previousDoc.id),
-        type:
-          previousDoc.type ||
-          "Transmittal",
-        title:
-          previousDoc.title ||
-          "",
-        description:
-          previousDoc.description ||
-          "",
-        department:
-          previousDoc.department ||
-          "",
-        area:
-          previousDoc.area ||
-          "",
-        fileName:
-          previousDoc.fileName ||
-          "",
-        documentLink:
-          previousDoc.documentLink ||
-          ""
-      });
-
-      /*
-        File lama dipakai kembali jika masih
-        tersedia di state browser.
-      */
-      setFile(
-        previousDoc.file ||
-        null
-      );
-
-      /*
-        Approval chain lama dijadikan default.
-        Pemohon tetap boleh mengubahnya.
-      */
-      const previousReviewers =
-        (previousDoc.steps || [])
-          .filter(
-            step =>
-              step.role ===
-              "REVIEWER"
-          )
-          .sort(
-            (a, b) =>
-              Number(a.order) -
-              Number(b.order)
-          )
-          .map(
-            step =>
-              Number(
-                step.approverId
-              )
-          );
-
-      const previousApprovers =
-        (previousDoc.steps || [])
-          .filter(
-            step =>
-              step.role ===
-              "APPROVER"
-          )
-          .sort(
-            (a, b) =>
-              Number(a.order) -
-              Number(b.order)
-          )
-          .map(
-            step =>
-              Number(
-                step.approverId
-              )
-          );
-
-      setReviewerIds(
-        previousReviewers
-      );
-
-      setApproverIds(
-        previousApprovers
-      );
-    };
+  /* =======================================================
+     ADD REVIEWER
+  ======================================================= */
 
   const addReviewer =
     id => {
+
       if (!id) return;
 
       const numericId =
         Number(id);
+
+      /*
+        Jangan duplicate.
+      */
 
       if (
         reviewerIds.includes(
@@ -3929,20 +3808,48 @@ function CreateRequest({
         return;
       }
 
+
       /*
-        User boleh menjadi Reviewer DAN
-        Approver pada dokumen yang sama.
+        User yang sudah menjadi Approver
+        tidak boleh menjadi Reviewer.
       */
+
+      if (
+        approverIds.includes(
+          numericId
+        )
+      ) {
+
+        alert(
+          "User ini sudah dipilih sebagai Approver."
+        );
+
+        return;
+      }
+
+
+      /*
+        Tambahkan ke paling belakang.
+        Ini menentukan urutan approval.
+      */
+
       setReviewerIds(
         current => [
           ...current,
           numericId
         ]
       );
+
     };
+
+
+  /* =======================================================
+     REMOVE REVIEWER
+  ======================================================= */
 
   const removeReviewer =
     id => {
+
       setReviewerIds(
         current =>
           current.filter(
@@ -3951,14 +3858,26 @@ function CreateRequest({
               Number(id)
           )
       );
+
     };
+
+
+  /* =======================================================
+     ADD APPROVER
+  ======================================================= */
 
   const addApprover =
     id => {
+
       if (!id) return;
 
       const numericId =
         Number(id);
+
+
+      /*
+        Jangan duplicate.
+      */
 
       if (
         approverIds.includes(
@@ -3968,20 +3887,47 @@ function CreateRequest({
         return;
       }
 
+
       /*
-        User boleh menjadi Approver walaupun
-        sebelumnya juga dipilih sebagai Reviewer.
+        User yang sudah menjadi Reviewer
+        tidak boleh menjadi Approver.
       */
+
+      if (
+        reviewerIds.includes(
+          numericId
+        )
+      ) {
+
+        alert(
+          "User ini sudah dipilih sebagai Reviewer."
+        );
+
+        return;
+      }
+
+
+      /*
+        Tambahkan ke paling belakang.
+      */
+
       setApproverIds(
         current => [
           ...current,
           numericId
         ]
       );
+
     };
+
+
+  /* =======================================================
+     REMOVE APPROVER
+  ======================================================= */
 
   const removeApprover =
     id => {
+
       setApproverIds(
         current =>
           current.filter(
@@ -3990,66 +3936,101 @@ function CreateRequest({
               Number(id)
           )
       );
+
     };
+
+
+  /* =======================================================
+     SUBMIT
+  ======================================================= */
 
   const submit =
     event => {
+
       event.preventDefault();
 
-      if (!currentUser) {
-        alert(
-          "User belum login. Silakan login terlebih dahulu."
-        );
-        return;
-      }
 
-      if (
-        form.requestType ===
-          "REVISION" &&
-        !form.revisionOfId
-      ) {
-        alert(
-          "Silakan pilih dokumen yang akan direvisi."
-        );
-        return;
-      }
+      /*
+        VALIDASI PEMOHON
+      */
+
+      if (!currentUser) {
+  alert(
+    "User belum login. Silakan login terlebih dahulu."
+  );
+
+  return;
+}
+
+
+      /*
+        VALIDASI JUDUL
+      */
 
       if (
         !form.title.trim()
       ) {
+
         alert(
           "Nama/judul dokumen wajib diisi."
         );
+
         return;
       }
+
+
+      /*
+        VALIDASI DOKUMEN
+      */
 
       if (
         !file &&
         !form.documentLink
       ) {
+
         alert(
           "Upload dokumen atau masukkan link dokumen."
         );
+
         return;
       }
+
+
+      /*
+        MINIMAL 1 REVIEWER
+      */
 
       if (
         !reviewerIds.length
       ) {
+
         alert(
           "Minimal pilih satu Reviewer."
         );
+
         return;
       }
+
+
+      /*
+        MINIMAL 1 APPROVER
+      */
 
       if (
         !approverIds.length
       ) {
+
         alert(
           "Minimal pilih satu Approver."
         );
+
         return;
       }
+
+
+      /*
+        BUAT DATA REVIEWER
+      */
 
       const reviewers =
         reviewerIds
@@ -4064,11 +4045,19 @@ function CreateRequest({
           .filter(Boolean)
           .map(
             user => ({
+
               ...user,
+
               role:
                 "REVIEWER"
+
             })
           );
+
+
+      /*
+        BUAT DATA APPROVER
+      */
 
       const approvers =
         approverIds
@@ -4083,53 +4072,59 @@ function CreateRequest({
           .filter(Boolean)
           .map(
             user => ({
+
               ...user,
+
               role:
                 "APPROVER"
+
             })
           );
 
-      const revisionDoc =
-        form.revisionOfId
-          ? docs.find(
-              doc =>
-                String(doc.id) ===
-                String(
-                  form.revisionOfId
-                )
-            )
-          : null;
+
+      /*
+        URUTAN FINAL:
+
+        REVIEWER 1
+        REVIEWER 2
+        REVIEWER 3
+        ↓
+        APPROVER 1
+        APPROVER 2
+        APPROVER 3
+
+        dst.
+      */
 
       onSubmit({
-        ...form,
 
-        applicantId:
-          currentUser.id,
+  ...form,
 
-        applicantName:
-          currentUser.name,
+  applicantId:
+    currentUser.id,
 
-        file,
+  applicantName:
+    currentUser.name,
 
-        revisionOfId:
-          form.revisionOfId
-            ? Number(
-                form.revisionOfId
-              )
-            : null,
+  file,
 
-        revisionOfSubmissionNo:
-          revisionDoc?.submissionNo ||
-          null,
+  approvalChain:
+    [
+      ...reviewers,
+      ...approvers
+    ]
 
-        approvalChain: [
-          ...reviewers,
-          ...approvers
-        ]
-      });
+});
+
     };
 
+
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
+
     <form
       onSubmit={
         submit
@@ -4144,6 +4139,7 @@ function CreateRequest({
       ================================================= */}
 
       <div>
+
         <button
           type="button"
           onClick={
@@ -4159,6 +4155,7 @@ function CreateRequest({
           ← Kembali
         </button>
 
+
         <h1
           className="
             text-2xl
@@ -4168,6 +4165,7 @@ function CreateRequest({
           Buat Pengajuan
         </h1>
 
+
         <p
           className="
             mt-1
@@ -4175,379 +4173,221 @@ function CreateRequest({
             text-slate-500
           "
         >
-          Buat pengajuan baru atau revisi
-          dokumen yang sebelumnya ditolak.
+          Isi dokumen dan tentukan
+          urutan Reviewer serta Approver.
         </p>
+
       </div>
 
 
-      {/* =================================================
-          JENIS PENGAJUAN
-      ================================================= */}
+     {/* =================================================
+    APPLICANT
+================================================= */}
 
-      <div
-        className="
-          card
-          p-5
-        "
-      >
-        <h2
-          className="
-            font-bold
-          "
-        >
-          Jenis Pengajuan
-        </h2>
+<div
+  className="
+    card
+    p-5
+  "
+>
 
-        <div
-          className="
-            mt-4
-            grid
-            gap-4
-            md:grid-cols-2
-          "
-        >
-
-          <div>
-            <label
-              className="
-                label
-              "
-            >
-              Pilih Jenis
-            </label>
-
-            <select
-              className="
-                input
-              "
-              value={
-                form.requestType
-              }
-              onChange={
-                e => {
-                  const value =
-                    e.target.value;
-
-                  if (
-                    value ===
-                    "NEW"
-                  ) {
-                    setForm(
-                      current => ({
-                        ...current,
-                        requestType:
-                          "NEW",
-                        revisionOfId:
-                          ""
-                      })
-                    );
-
-                    setFile(null);
-                    setReviewerIds([]);
-                    setApproverIds([]);
-                  }
-                  else {
-                    setForm(
-                      current => ({
-                        ...current,
-                        requestType:
-                          "REVISION"
-                      })
-                    );
-                  }
-                }
-              }
-            >
-              <option value="NEW">
-                Pengajuan Baru
-              </option>
-
-              <option value="REVISION">
-                Revisi Pengajuan
-              </option>
-            </select>
-          </div>
+  <h2
+    className="
+      font-bold
+    "
+  >
+    Pemohon
+  </h2>
 
 
-          {form.requestType ===
-            "REVISION" && (
-            <div>
-              <label
-                className="
-                  label
-                "
-              >
-                Dokumen yang Direvisi
-              </label>
+  <div
+    className="
+      mt-4
+    "
+  >
 
-              <select
-                className="
-                  input
-                "
-                value={
-                  form.revisionOfId
-                }
-                onChange={
-                  e =>
-                    handleRevisionChange(
-                      e.target.value
-                    )
-                }
-              >
-                <option value="">
-                  Pilih dokumen...
-                </option>
-
-                {revisionDocs.map(
-                  doc => (
-                    <option
-                      key={
-                        doc.id
-                      }
-                      value={
-                        doc.id
-                      }
-                    >
-                      {doc.submissionNo}
-                      {" — "}
-                      {doc.title}
-                    </option>
-                  )
-                )}
-              </select>
-
-              {!revisionDocs.length && (
-                <p
-                  className="
-                    mt-2
-                    text-xs
-                    text-red-500
-                  "
-                >
-                  Belum ada dokumen ditolak
-                  milik user ini yang dapat
-                  direvisi.
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {form.requestType ===
-          "REVISION" &&
-          form.revisionOfId && (
-          <div
-            className="
-              mt-4
-              rounded-xl
-              border
-              border-amber-200
-              bg-amber-50
-              p-4
-              text-sm
-            "
-          >
-            <div
-              className="
-                font-semibold
-                text-amber-800
-              "
-            >
-              Revisi dari dokumen
-            </div>
-
-            <div
-              className="
-                mt-1
-                text-amber-700
-              "
-            >
-              {
-                revisionDocs.find(
-                  doc =>
-                    String(
-                      doc.id
-                    ) ===
-                    String(
-                      form.revisionOfId
-                    )
-                )?.submissionNo
-              }
-              {" — "}
-              {
-                revisionDocs.find(
-                  doc =>
-                    String(
-                      doc.id
-                    ) ===
-                    String(
-                      form.revisionOfId
-                    )
-                )?.title
-              }
-            </div>
-          </div>
-        )}
-      </div>
+    <label
+      className="
+        label
+      "
+    >
+      Nama Pemohon
+    </label>
 
 
-      {/* =================================================
-          APPLICANT
-      ================================================= */}
+    {/* =================================================
+        NAMA PEMOHON OTOMATIS DARI USER YANG LOGIN
+    ================================================= */}
 
-      <div
-        className="
-          card
-          p-5
-        "
-      >
-        <h2
-          className="
-            font-bold
-          "
-        >
-          Pemohon
-        </h2>
+    <div
+      className="
+        input
+        flex
+        items-center
+        justify-between
+        bg-slate-50
+      "
+    >
+
+      <div>
 
         <div
           className="
-            mt-4
+            font-medium
+            text-slate-800
           "
         >
-          <label
-            className="
-              label
-            "
-          >
-            Nama Pemohon
-          </label>
-
-          <div
-            className="
-              input
-              flex
-              items-center
-              justify-between
-              bg-slate-50
-            "
-          >
-            <div>
-              <div
-                className="
-                  font-medium
-                  text-slate-800
-                "
-              >
-                {
-                  currentUser?.name ||
-                  "User belum login"
-                }
-              </div>
-
-              {currentUser && (
-                <div
-                  className="
-                    mt-1
-                    text-xs
-                    text-slate-400
-                  "
-                >
-                  {
-                    currentUser.position
-                  }
-                  {" · "}
-                  {
-                    currentUser.area
-                  }
-                </div>
-              )}
-            </div>
-
-            {currentUser && (
-              <span
-                className="
-                  rounded-full
-                  bg-green-100
-                  px-3
-                  py-1
-                  text-xs
-                  font-medium
-                  text-green-700
-                "
-              >
-                Logged in
-              </span>
-            )}
-          </div>
+          {
+            currentUser?.name ||
+            "User belum login"
+          }
         </div>
+
 
         {currentUser && (
+
           <div
             className="
-              mt-4
-              grid
-              gap-3
-              rounded-xl
-              bg-slate-50
-              p-4
-              text-sm
-              sm:grid-cols-3
+              mt-1
+              text-xs
+              text-slate-400
             "
           >
-            <div>
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                NIK
-              </div>
-              <b>
-                {
-                  currentUser.nik ||
-                  "-"
-                }
-              </b>
-            </div>
 
-            <div>
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                Department
-              </div>
-              <b>
-                {
-                  currentUser.department ||
-                  "-"
-                }
-              </b>
-            </div>
+            {
+              currentUser.position
+            }
 
-            <div>
-              <div
-                className="
-                  text-xs
-                  text-slate-400
-                "
-              >
-                Area
-              </div>
-              <b>
-                {
-                  currentUser.area ||
-                  "-"
-                }
-              </b>
-            </div>
+            {" · "}
+
+            {
+              currentUser.area
+            }
+
           </div>
+
         )}
+
       </div>
+
+
+      {/* Badge login */}
+
+      {currentUser && (
+
+        <span
+          className="
+            rounded-full
+            bg-green-100
+            px-3
+            py-1
+            text-xs
+            font-medium
+            text-green-700
+          "
+        >
+          Logged in
+        </span>
+
+      )}
+
+    </div>
+
+  </div>
+
+
+  {/* =================================================
+      DETAIL USER
+  ================================================= */}
+
+  {currentUser && (
+
+    <div
+      className="
+        mt-4
+        grid
+        gap-3
+        rounded-xl
+        bg-slate-50
+        p-4
+        text-sm
+        sm:grid-cols-3
+      "
+    >
+
+      {/* NIK */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          NIK
+        </div>
+
+        <b>
+          {
+            currentUser.nik ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+
+      {/* Department */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          Department
+        </div>
+
+        <b>
+          {
+            currentUser.department ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+
+      {/* Area */}
+
+      <div>
+
+        <div
+          className="
+            text-xs
+            text-slate-400
+          "
+        >
+          Area
+        </div>
+
+        <b>
+          {
+            currentUser.area ||
+            "-"
+          }
+        </b>
+
+      </div>
+
+    </div>
+
+  )}
+
+</div>
 
 
       {/* =================================================
@@ -4560,6 +4400,7 @@ function CreateRequest({
           p-5
         "
       >
+
         <h2
           className="
             font-bold
@@ -4567,6 +4408,7 @@ function CreateRequest({
         >
           Informasi Dokumen
         </h2>
+
 
         <div
           className="
@@ -4577,7 +4419,10 @@ function CreateRequest({
           "
         >
 
+          {/* JENIS DOKUMEN */}
+
           <div>
+
             <label
               className="
                 label
@@ -4585,6 +4430,7 @@ function CreateRequest({
             >
               Jenis Dokumen
             </label>
+
 
             <select
               className="
@@ -4597,27 +4443,38 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
+
                       ...current,
+
                       type:
                         e.target.value
+
                     })
                   )
               }
             >
+
               <option>
                 Transmittal
               </option>
+
               <option>
                 Surat
               </option>
+
               <option>
                 Memo
               </option>
+
             </select>
+
           </div>
 
 
+          {/* TITLE */}
+
           <div>
+
             <label
               className="
                 label
@@ -4625,6 +4482,7 @@ function CreateRequest({
             >
               Judul / Nama Dokumen
             </label>
+
 
             <input
               className="
@@ -4637,17 +4495,24 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
+
                       ...current,
+
                       title:
                         e.target.value
+
                     })
                   )
               }
             />
+
           </div>
 
 
+          {/* DEPARTMENT */}
+
           <div>
+
             <label
               className="
                 label
@@ -4655,6 +4520,7 @@ function CreateRequest({
             >
               Departemen
             </label>
+
 
             <input
               className="
@@ -4667,17 +4533,24 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
+
                       ...current,
+
                       department:
                         e.target.value
+
                     })
                   )
               }
             />
+
           </div>
 
 
+          {/* AREA */}
+
           <div>
+
             <label
               className="
                 label
@@ -4685,6 +4558,7 @@ function CreateRequest({
             >
               Area
             </label>
+
 
             <input
               className="
@@ -4697,28 +4571,36 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
+
                       ...current,
+
                       area:
                         e.target.value
+
                     })
                   )
               }
             />
+
           </div>
 
+
+          {/* DESCRIPTION */}
 
           <div
             className="
               md:col-span-2
             "
           >
+
             <label
               className="
                 label
               "
             >
-              Keperluan
+              Keperluan / Deskripsi
             </label>
+
 
             <textarea
               className="
@@ -4732,46 +4614,111 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
+
                       ...current,
+
                       description:
                         e.target.value
+
                     })
                   )
               }
             />
+
           </div>
+
         </div>
 
+      </div>
 
-        {/* DOCUMENT UPLOAD */}
+
+      {/* =================================================
+          DOCUMENT FILE
+      ================================================= */}
+
+      <div
+        className="
+          card
+          p-5
+        "
+      >
+
+        <h2
+          className="
+            font-bold
+          "
+        >
+          Dokumen Attachment
+        </h2>
+
 
         <div
           className="
             mt-4
+            grid
+            gap-4
+            md:grid-cols-2
           "
         >
+
+          {/* FILE */}
+
           <label
             className="
-              label
-            "
-          >
-            Dokumen
-          </label>
-
-          <div
-            className="
-              mt-2
+              flex
+              cursor-pointer
+              items-center
+              gap-4
               rounded-xl
               border-2
               border-dashed
               border-slate-300
-              p-4
+              p-5
             "
           >
+
+            <Upload
+              className="
+                text-[#1261A0]
+              "
+            />
+
+
+            <div>
+
+              <b>
+                {
+                  file
+                    ? file.name
+                    : "Pilih file"
+                }
+              </b>
+
+              <div
+                className="
+                  text-xs
+                  text-slate-500
+                "
+              >
+                PDF / DOC / DOCX
+              </div>
+
+            </div>
+
+
             <input
               type="file"
+              accept="
+                .pdf,
+                .doc,
+                .docx
+              "
+              className="
+                hidden
+              "
               onChange={
                 e => {
+
                   const selected =
                     e.target.files?.[0] ||
                     null;
@@ -4780,71 +4727,68 @@ function CreateRequest({
                     selected
                   );
 
-                  if (
-                    selected
-                  ) {
-                    setForm(
-                      current => ({
-                        ...current,
-                        fileName:
-                          selected.name
-                      })
-                    );
-                  }
+
+                  setForm(
+                    current => ({
+
+                      ...current,
+
+                      fileName:
+                        selected?.name ||
+                        ""
+
+                    })
+                  );
+
                 }
               }
             />
 
-            <p
-              className="
-                mt-2
-                text-xs
-                text-slate-400
-              "
-            >
-              {file?.name ||
-                form.fileName ||
-                "Belum ada file dipilih."}
-            </p>
-          </div>
-        </div>
-
-
-        <div
-          className="
-            mt-4
-          "
-        >
-          <label
-            className="
-              label
-            "
-          >
-            Atau Link Dokumen
           </label>
 
-          <input
-            className="
-              input
-            "
-            placeholder="
-              https://...
-            "
-            value={
-              form.documentLink
-            }
-            onChange={
-              e =>
-                setForm(
-                  current => ({
-                    ...current,
-                    documentLink:
-                      e.target.value
-                  })
-                )
-            }
-          />
+
+          {/* LINK */}
+
+          <div>
+
+            <label
+              className="
+                label
+              "
+            >
+              Atau Link Dokumen
+            </label>
+
+
+            <input
+              className="
+                input
+              "
+              placeholder="
+                https://...
+              "
+              value={
+                form.documentLink
+              }
+              onChange={
+                e =>
+                  setForm(
+                    current => ({
+
+                      ...current,
+
+                      documentLink:
+                        e.target.value
+
+                    })
+                  )
+              }
+            />
+
+          </div>
+
         </div>
+
       </div>
 
 
@@ -4858,6 +4802,7 @@ function CreateRequest({
           p-5
         "
       >
+
         <div
           className="
             flex
@@ -4865,7 +4810,9 @@ function CreateRequest({
             justify-between
           "
         >
+
           <div>
+
             <h2
               className="
                 font-bold
@@ -4881,22 +4828,28 @@ function CreateRequest({
                 text-slate-500
               "
             >
-              Pilih orang dari master database.
-              Tidak ada pembatasan role.
+              Pilih Reviewer dari database.
+              Urutan mengikuti urutan pilihan.
             </p>
+
           </div>
+
 
           <Badge
             status="REVIEWER"
           />
+
         </div>
 
+
+        {/* DROPDOWN */}
 
         <div
           className="
             mt-4
           "
         >
+
           <select
             className="
               input
@@ -4909,21 +4862,26 @@ function CreateRequest({
                 )
             }
           >
-            <option value="">
-              + Pilih Reviewer
+
+            <option
+              value=""
+            >
+              + Pilih Reviewer dari database
             </option>
 
-            {availableUsers
+
+            {reviewerUsers
               .filter(
-                user =>
+                reviewer =>
                   !reviewerIds.includes(
                     Number(
-                      user.id
+                      reviewer.id
                     )
                   )
               )
               .map(
                 reviewer => (
+
                   <option
                     key={
                       reviewer.id
@@ -4932,23 +4890,34 @@ function CreateRequest({
                       reviewer.id
                     }
                   >
+
                     {
                       reviewer.name
                     }
+
                     {" — "}
+
                     {
                       reviewer.position
                     }
+
                     {" · "}
+
                     {
                       reviewer.area
                     }
+
                   </option>
+
                 )
               )}
+
           </select>
+
         </div>
 
+
+        {/* SELECTED REVIEWERS */}
 
         <div
           className="
@@ -4956,11 +4925,13 @@ function CreateRequest({
             space-y-2
           "
         >
+
           {reviewerIds.map(
             (
               id,
               index
             ) => {
+
               const reviewer =
                 users.find(
                   user =>
@@ -4970,10 +4941,13 @@ function CreateRequest({
                     Number(id)
                 );
 
+
               if (!reviewer)
                 return null;
 
+
               return (
+
                 <div
                   key={
                     reviewer.id
@@ -4989,6 +4963,7 @@ function CreateRequest({
                     p-3
                   "
                 >
+
                   <div
                     className="
                       grid
@@ -5003,16 +4978,16 @@ function CreateRequest({
                       text-white
                     "
                   >
-                    {
-                      index + 1
-                    }
+                    {index + 1}
                   </div>
+
 
                   <div
                     className="
                       flex-1
                     "
                   >
+
                     <div
                       className="
                         font-semibold
@@ -5039,7 +5014,9 @@ function CreateRequest({
                         reviewer.area
                       }
                     </div>
+
                   </div>
+
 
                   <button
                     type="button"
@@ -5057,11 +5034,16 @@ function CreateRequest({
                   >
                     Hapus
                   </button>
+
                 </div>
+
               );
+
             }
           )}
+
         </div>
+
       </div>
 
 
@@ -5075,6 +5057,7 @@ function CreateRequest({
           p-5
         "
       >
+
         <div
           className="
             flex
@@ -5082,7 +5065,9 @@ function CreateRequest({
             justify-between
           "
         >
+
           <div>
+
             <h2
               className="
                 font-bold
@@ -5098,23 +5083,29 @@ function CreateRequest({
                 text-slate-500
               "
             >
-              Pilih orang dari master database.
-              Orang yang sama boleh menjadi
-              Reviewer dan Approver.
+              Approver dimulai setelah seluruh
+              Reviewer selesai.
+              Urutan mengikuti urutan pilihan.
             </p>
+
           </div>
+
 
           <Badge
             status="APPROVER"
           />
+
         </div>
 
+
+        {/* DROPDOWN */}
 
         <div
           className="
             mt-4
           "
         >
+
           <select
             className="
               input
@@ -5127,21 +5118,26 @@ function CreateRequest({
                 )
             }
           >
-            <option value="">
-              + Pilih Approver
+
+            <option
+              value=""
+            >
+              + Pilih Approver dari database
             </option>
 
-            {availableUsers
+
+            {approverUsers
               .filter(
-                user =>
+                approver =>
                   !approverIds.includes(
                     Number(
-                      user.id
+                      approver.id
                     )
                   )
               )
               .map(
                 approver => (
+
                   <option
                     key={
                       approver.id
@@ -5150,23 +5146,34 @@ function CreateRequest({
                       approver.id
                     }
                   >
+
                     {
                       approver.name
                     }
+
                     {" — "}
+
                     {
                       approver.position
                     }
+
                     {" · "}
+
                     {
                       approver.area
                     }
+
                   </option>
+
                 )
               )}
+
           </select>
+
         </div>
 
+
+        {/* SELECTED APPROVERS */}
 
         <div
           className="
@@ -5174,11 +5181,13 @@ function CreateRequest({
             space-y-2
           "
         >
+
           {approverIds.map(
             (
               id,
               index
             ) => {
+
               const approver =
                 users.find(
                   user =>
@@ -5188,10 +5197,13 @@ function CreateRequest({
                     Number(id)
                 );
 
+
               if (!approver)
                 return null;
 
+
               return (
+
                 <div
                   key={
                     approver.id
@@ -5207,6 +5219,7 @@ function CreateRequest({
                     p-3
                   "
                 >
+
                   <div
                     className="
                       grid
@@ -5228,11 +5241,13 @@ function CreateRequest({
                     }
                   </div>
 
+
                   <div
                     className="
                       flex-1
                     "
                   >
+
                     <div
                       className="
                         font-semibold
@@ -5259,7 +5274,9 @@ function CreateRequest({
                         approver.area
                       }
                     </div>
+
                   </div>
+
 
                   <button
                     type="button"
@@ -5277,11 +5294,16 @@ function CreateRequest({
                   >
                     Hapus
                   </button>
+
                 </div>
+
               );
+
             }
           )}
+
         </div>
+
       </div>
 
 
@@ -5291,6 +5313,7 @@ function CreateRequest({
 
       {(reviewerIds.length ||
         approverIds.length) > 0 && (
+
         <div
           className="
             card
@@ -5299,6 +5322,7 @@ function CreateRequest({
             p-5
           "
         >
+
           <h2
             className="
               font-bold
@@ -5308,6 +5332,7 @@ function CreateRequest({
             Urutan Approval
           </h2>
 
+
           <p
             className="
               mt-1
@@ -5315,10 +5340,10 @@ function CreateRequest({
               text-slate-500
             "
           >
-            Reviewer diproses terlebih dahulu,
-            kemudian Approver. Orang yang sama
-            boleh muncul di kedua tahap.
+            Reviewer selalu diproses terlebih dahulu,
+            kemudian Approver.
           </p>
+
 
           <div
             className="
@@ -5326,6 +5351,7 @@ function CreateRequest({
               space-y-2
             "
           >
+
             {[
               ...reviewerIds,
               ...approverIds
@@ -5334,6 +5360,7 @@ function CreateRequest({
                 id,
                 index
               ) => {
+
                 const selected =
                   users.find(
                     user =>
@@ -5343,16 +5370,19 @@ function CreateRequest({
                       Number(id)
                   );
 
+
                 const stage =
                   index <
                   reviewerIds.length
                     ? "REVIEWER"
                     : "APPROVER";
 
+
                 return (
+
                   <div
                     key={
-                      `${stage}-${id}-${index}`
+                      `${stage}-${id}`
                     }
                     className="
                       flex
@@ -5363,6 +5393,7 @@ function CreateRequest({
                       p-3
                     "
                   >
+
                     <span
                       className="
                         grid
@@ -5378,11 +5409,13 @@ function CreateRequest({
                       {index + 1}
                     </span>
 
+
                     <div
                       className="
                         flex-1
                       "
                     >
+
                       <b>
                         {
                           selected?.name
@@ -5398,28 +5431,41 @@ function CreateRequest({
                         {
                           stage
                         }
+
                         {" · "}
+
                         {
                           selected?.position
                         }
+
                         {" · "}
+
                         {
                           selected?.area
                         }
+
                       </div>
+
                     </div>
+
 
                     <Badge
                       status={
                         stage
                       }
                     />
+
                   </div>
+
                 );
+
               }
             )}
+
           </div>
+
         </div>
+
       )}
 
 
@@ -5434,6 +5480,7 @@ function CreateRequest({
           gap-2
         "
       >
+
         <button
           type="button"
           className="
@@ -5446,21 +5493,28 @@ function CreateRequest({
           Batal
         </button>
 
+
         <button
           type="submit"
           className="
             btn-primary
           "
         >
+
           Submit Pengajuan
 
           <ChevronRight
             size={17}
           />
+
         </button>
+
       </div>
+
     </form>
+
   );
+
 }
 
 
@@ -5701,10 +5755,6 @@ function Detail({
 
             activeStep={
               currentStep
-            }
-
-            isPublic={
-              !user
             }
 
           />
@@ -5971,44 +6021,185 @@ function Detail({
           </div>
 
 
-   {doc?.status === "APPROVED" &&
- !user && (
+          {/* =================================================
+              FINAL DOCUMENT
+          ================================================= */}
 
-  <div
-    className="
-      mt-4
-      rounded-xl
-      border
-      border-slate-200
-      bg-slate-50
-      p-4
-      text-sm
-    "
-  >
+          {doc.status === "APPROVED" && (
 
-    <div
-      className="
-        font-semibold
-        text-slate-800
-      "
-    >
-      Dokumen final bersifat privat
-    </div>
+            <div
+              className="
+                card
+                p-5
+              "
+            >
 
-    <div
-      className="
-        mt-1
-        text-slate-500
-      "
-    >
-      Silakan login sebagai pemohon,
-      reviewer, atau approver yang
-      terkait untuk melihat dokumen final.
-    </div>
+              <div>
 
-  </div>
+                <div
+                  className="
+                    text-xs
+                    font-bold
+                    uppercase
+                    text-emerald-600
+                  "
+                >
+                  Approval Selesai
+                </div>
 
-)}
+                <h2
+                  className="
+                    mt-1
+                    font-bold
+                  "
+                >
+                  Dokumen Final
+                </h2>
+
+                <p
+                  className="
+                    mt-1
+                    text-sm
+                    text-slate-500
+                  "
+                >
+                  Seluruh tahapan approval telah selesai.
+                  Dokumen final hanya dapat dilihat oleh
+                  pengguna yang memiliki hak akses.
+                </p>
+
+              </div>
+
+
+              {/* BELUM LOGIN */}
+
+              {!user && (
+
+                <div
+                  className="
+                    mt-4
+                    rounded-xl
+                    border
+                    border-slate-200
+                    bg-slate-50
+                    p-4
+                  "
+                >
+
+                  <div
+                    className="
+                      font-semibold
+                      text-slate-800
+                    "
+                  >
+                    Dokumen final bersifat privat
+                  </div>
+
+                  <p
+                    className="
+                      mt-1
+                      text-sm
+                      text-slate-500
+                    "
+                  >
+                    Silakan login sebagai pemohon, reviewer,
+                    atau approver yang terkait untuk melihat
+                    dokumen final.
+                  </p>
+
+                </div>
+
+              )}
+
+
+              {/* SUDAH LOGIN DAN MEMILIKI AKSES */}
+
+              {user &&
+                canAccessFinalDocument(
+                  doc,
+                  user
+                ) && (
+
+                <div
+                  className="
+                    mt-4
+                  "
+                >
+
+                  <button
+                    type="button"
+                    className="
+                      btn-primary
+                      w-full
+                    "
+                    onClick={
+                      onPreviewFinal
+                    }
+                  >
+
+                    <FileText
+                      size={17}
+                    />
+
+                    Lihat Dokumen Final
+
+                    <ChevronRight
+                      size={17}
+                    />
+
+                  </button>
+
+                </div>
+
+              )}
+
+
+              {/* SUDAH LOGIN TAPI TIDAK MEMILIKI AKSES */}
+
+              {user &&
+                !canAccessFinalDocument(
+                  doc,
+                  user
+                ) && (
+
+                <div
+                  className="
+                    mt-4
+                    rounded-xl
+                    border
+                    border-red-200
+                    bg-red-50
+                    p-4
+                  "
+                >
+
+                  <div
+                    className="
+                      font-semibold
+                      text-red-700
+                    "
+                  >
+                    Access Denied
+                  </div>
+
+                  <p
+                    className="
+                      mt-1
+                      text-sm
+                      text-red-600
+                    "
+                  >
+                    Akun Anda tidak memiliki hak akses
+                    untuk melihat dokumen final ini.
+                  </p>
+
+                </div>
+
+              )}
+
+            </div>
+
+          )}
 
         </div>
 
@@ -6026,17 +6217,16 @@ function Detail({
 function DocumentInfo({
   doc
 }) {
-  const isRevision =
-    doc.requestType ===
-    "REVISION";
 
   return (
+
     <div
       className="
         card
         p-5
       "
     >
+
       <h2
         className="
           font-bold
@@ -6044,6 +6234,7 @@ function DocumentInfo({
       >
         Informasi Dokumen
       </h2>
+
 
       <div
         className="
@@ -6054,7 +6245,9 @@ function DocumentInfo({
           sm:grid-cols-2
         "
       >
+
         <div>
+
           <small
             className="
               text-slate-400
@@ -6072,31 +6265,12 @@ function DocumentInfo({
               doc.applicantName
             }
           </div>
+
         </div>
 
-        <div>
-          <small
-            className="
-              text-slate-400
-            "
-          >
-            Jenis Pengajuan
-          </small>
-
-          <div
-            className="
-              font-semibold
-            "
-          >
-            {
-              isRevision
-                ? "Revisi Pengajuan"
-                : "Pengajuan Baru"
-            }
-          </div>
-        </div>
 
         <div>
+
           <small
             className="
               text-slate-400
@@ -6114,9 +6288,12 @@ function DocumentInfo({
               doc.department
             }
           </div>
+
         </div>
 
+
         <div>
+
           <small
             className="
               text-slate-400
@@ -6134,9 +6311,12 @@ function DocumentInfo({
               doc.area
             }
           </div>
+
         </div>
 
+
         <div>
+
           <small
             className="
               text-slate-400
@@ -6156,37 +6336,16 @@ function DocumentInfo({
               )
             }
           </div>
+
         </div>
 
-        {isRevision && (
-          <div>
-            <small
-              className="
-                text-slate-400
-              "
-            >
-              Dokumen yang Direvisi
-            </small>
-
-            <div
-              className="
-                font-semibold
-                text-[#1261A0]
-              "
-            >
-              {
-                doc.revisionOfSubmissionNo ||
-                "-"
-              }
-            </div>
-          </div>
-        )}
 
         <div
           className="
             sm:col-span-2
           "
         >
+
           <small
             className="
               text-slate-400
@@ -6201,8 +6360,11 @@ function DocumentInfo({
               "-"
             }
           </div>
+
         </div>
+
       </div>
+
 
       <div
         className="
@@ -6213,6 +6375,7 @@ function DocumentInfo({
           text-sm
         "
       >
+
         <FileText
           size={16}
           className="
@@ -6226,7 +6389,9 @@ function DocumentInfo({
           doc.documentLink ||
           "-"
         }
+
       </div>
+
     </div>
   );
 }
@@ -6238,42 +6403,18 @@ function DocumentInfo({
 
 function ApprovalChain({
   doc,
-  activeStep,
-  isPublic = false
+  activeStep
 }) {
-  const publicStatus =
-    status => {
-      if (
-        status ===
-        "APPROVED"
-      ) {
-        return "Signed";
-      }
-
-      if (
-        status ===
-        "WAITING"
-      ) {
-        return "Waiting";
-      }
-
-      if (
-        status ===
-        "REJECTED"
-      ) {
-        return "Rejected";
-      }
-
-      return status;
-    };
 
   return (
+
     <div
       className="
         card
         p-5
       "
     >
+
       <div
         className="
           flex
@@ -6281,6 +6422,7 @@ function ApprovalChain({
           justify-between
         "
       >
+
         <h2
           className="
             font-bold
@@ -6289,6 +6431,7 @@ function ApprovalChain({
           Approval Chain
         </h2>
 
+
         <span
           className="
             text-sm
@@ -6296,6 +6439,7 @@ function ApprovalChain({
             text-slate-500
           "
         >
+
           {
             doc.steps.filter(
               step =>
@@ -6307,27 +6451,11 @@ function ApprovalChain({
           {
             doc.steps.length
           }
+
         </span>
+
       </div>
 
-      {isPublic && (
-        <div
-          className="
-            mt-3
-            rounded-xl
-            border
-            border-slate-200
-            bg-slate-50
-            p-3
-            text-xs
-            text-slate-500
-          "
-        >
-          Tampilan publik hanya menampilkan
-          status approval. Tanda tangan
-          disembunyikan.
-        </div>
-      )}
 
       <div
         className="
@@ -6335,11 +6463,13 @@ function ApprovalChain({
           space-y-4
         "
       >
+
         {doc.steps.map(
           (
             step,
             index
           ) => (
+
             <div
               key={
                 step.id
@@ -6350,9 +6480,11 @@ function ApprovalChain({
                 gap-4
               "
             >
+
               {index <
                 doc.steps.length -
                   1 && (
+
                 <div
                   className="
                     absolute
@@ -6363,7 +6495,9 @@ function ApprovalChain({
                     bg-slate-200
                   "
                 />
+
               )}
+
 
               <div
                 className={`
@@ -6388,15 +6522,22 @@ function ApprovalChain({
                   }
                 `}
               >
+
                 {step.status ===
                 "APPROVED" ? (
+
                   <Check
                     size={16}
                   />
+
                 ) : (
+
                   step.order
+
                 )}
+
               </div>
+
 
               <div
                 className="
@@ -6406,6 +6547,7 @@ function ApprovalChain({
                   p-3
                 "
               >
+
                 <div
                   className="
                     flex
@@ -6414,12 +6556,15 @@ function ApprovalChain({
                     gap-3
                   "
                 >
+
                   <div>
+
                     <b>
                       {
                         step.approverName
                       }
                     </b>
+
 
                     <div
                       className="
@@ -6439,43 +6584,21 @@ function ApprovalChain({
                         step.area
                       }
                     </div>
+
                   </div>
 
-                  {isPublic ? (
-                    <span
-                      className={`
-                        rounded-full
-                        px-2.5
-                        py-1
-                        text-xs
-                        font-semibold
-                        ${
-                          step.status ===
-                          "APPROVED"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : step.status ===
-                              "REJECTED"
-                            ? "bg-red-50 text-red-700"
-                            : "bg-amber-50 text-amber-700"
-                        }
-                      `}
-                    >
-                      {
-                        publicStatus(
-                          step.status
-                        )
-                      }
-                    </span>
-                  ) : (
-                    <Badge
-                      status={
-                        step.status
-                      }
-                    />
-                  )}
+
+                  <Badge
+                    status={
+                      step.status
+                    }
+                  />
+
                 </div>
 
+
                 {step.signedAt && (
+
                   <div
                     className="
                       mt-2
@@ -6489,9 +6612,12 @@ function ApprovalChain({
                       )
                     }
                   </div>
+
                 )}
 
+
                 {step.comment && (
+
                   <div
                     className="
                       mt-2
@@ -6501,23 +6627,23 @@ function ApprovalChain({
                       text-sm
                     "
                   >
+
                     <b>
                       Catatan:
                     </b>{" "}
+
                     {
                       step.comment
                     }
+
                   </div>
+
                 )}
 
-                {/* =========================================
-                    SIGNATURE
-                    PUBLIC -> HIDDEN
-                    LOGIN  -> TAMPIL
-                ========================================= */}
 
                 {step.status ===
                   "APPROVED" && (
+
                   <div
                     className="
                       mt-4
@@ -6528,6 +6654,7 @@ function ApprovalChain({
                       p-3
                     "
                   >
+
                     <div
                       className="
                         mb-2
@@ -6541,7 +6668,12 @@ function ApprovalChain({
                       Tanda Tangan
                     </div>
 
-                    {isPublic ? (
+
+                    {step.signature &&
+                    step.signature.startsWith(
+                      "data:image/"
+                    ) ? (
+
                       <div
                         className="
                           flex
@@ -6552,121 +6684,87 @@ function ApprovalChain({
                           bg-slate-50
                         "
                       >
-                        <div
+
+                        <img
+
+                          src={
+                            step.signature
+                          }
+
+                          alt={
+                            `Tanda tangan ${step.approverName}`
+                          }
+
                           className="
-                            text-sm
-                            font-semibold
-                            text-slate-500
+                            max-h-20
+                            max-w-[220px]
+                            object-contain
                           "
-                        >
-                          Hidden
-                        </div>
+
+                        />
+
                       </div>
+
                     ) : (
-                      step.signature &&
-                      step.signature.startsWith(
-                        "data:image/"
-                      ) ? (
-                        <div
-                          className="
-                            flex
-                            min-h-[90px]
-                            items-center
-                            justify-center
-                            rounded-lg
-                            bg-slate-50
-                          "
-                        >
-                          <img
-                            src={
-                              step.signature
-                            }
-                            alt={
-                              `Tanda tangan ${step.approverName}`
-                            }
-                            className="
-                              max-h-20
-                              max-w-[220px]
-                              object-contain
-                            "
-                          />
-                        </div>
-                      ) : (
-                        <div
-                          className="
-                            flex
-                            min-h-[90px]
-                            items-center
-                            justify-center
-                            rounded-lg
-                            bg-slate-50
-                          "
-                        >
-                          <div
-                            className="
-                              text-center
-                            "
-                          >
-                            <div
-                              className="
-                                text-sm
-                                font-semibold
-                                text-emerald-700
-                              "
-                            >
-                              ✓ Approved
-                            </div>
 
-                            <div
-                              className="
-                                mt-1
-                                text-xs
-                                text-slate-400
-                              "
-                            >
-                              Signature belum
-                              tersedia pada
-                              data approval lama.
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    )}
-                  </div>
-                )}
-
-                {isPublic &&
-                  step.status ===
-                    "WAITING" && (
-                    <div
-                      className="
-                        mt-4
-                        flex
-                        min-h-[90px]
-                        items-center
-                        justify-center
-                        rounded-xl
-                        border
-                        border-slate-200
-                        bg-slate-50
-                      "
-                    >
-                      <span
+                      <div
                         className="
-                          text-sm
-                          font-semibold
-                          text-slate-500
+                          flex
+                          min-h-[90px]
+                          items-center
+                          justify-center
+                          rounded-lg
+                          bg-slate-50
                         "
                       >
-                        Waiting
-                      </span>
-                    </div>
-                  )}
+
+                        <div
+                          className="
+                            text-center
+                          "
+                        >
+
+                          <div
+                            className="
+                              text-sm
+                              font-semibold
+                              text-emerald-700
+                            "
+                          >
+                            ✓ Approved
+                          </div>
+
+                          <div
+                            className="
+                              mt-1
+                              text-xs
+                              text-slate-400
+                            "
+                          >
+                            Signature belum
+                            tersedia pada
+                            data approval lama.
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                )}
+
               </div>
+
             </div>
+
           )
         )}
+
       </div>
+
     </div>
   );
 }
@@ -7068,100 +7166,163 @@ function ActionMode({
    AUTH MODAL
 ========================================================= */
 
+/* =========================================================
+   AUTH MODAL
+========================================================= */
+
 function AuthModal({
   users,
   request,
   onClose,
   onContinue
 }) {
-  const [
-    selectedUserId,
-    setSelectedUserId
-  ] = useState("");
+
+  const [selectedUserId, setSelectedUserId] =
+    useState("");
 
   /*
-    Semua action menggunakan master user yang sama.
-    Tidak ada filter berdasarkan role master user.
+   * FILTER USER SESUAI KEBUTUHAN
+   *
+   * LOGIN   -> Semua user
+   * CREATE  -> Applicant
+   * REVIEW  -> Reviewer
+   * APPROVE -> Approver
+   */
 
-    Untuk REVIEW / APPROVE, authorizeAction()
-    tetap melakukan validasi bahwa user yang dipilih
-    adalah assignee step aktif.
-  */
-  const availableUsers =
-    users.filter(
-      user =>
-        user.active !== false
-    );
+/* =========================================================
+   AVAILABLE USERS
+========================================================= */
 
-  const handleContinue =
-    () => {
-      if (!selectedUserId) {
-        alert(
-          "Silakan pilih nama terlebih dahulu."
-        );
-        return;
-      }
+const availableUsers =
+  users.filter(user => {
 
-      onContinue(
-        Number(
-          selectedUserId
-        )
+    /*
+     * LOGIN BIASA
+     * Semua user boleh muncul
+     *
+     * Applicant
+     * Reviewer
+     * Approver
+     * Viewer
+     */
+
+    if (
+      request?.action === "LOGIN"
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * CREATE REQUEST
+     * Hanya user yang boleh
+     * membuat pengajuan.
+     */
+
+    if (
+      request?.action === "CREATE"
+    ) {
+
+      return (
+        user.role === "APPLICANT"
       );
-    };
 
-  const getTitle =
-    () => {
-      if (
-        request?.action ===
-        "CREATE"
-      ) {
-        return "Login untuk Membuat Pengajuan";
-      }
+    }
 
-      if (
-        request?.action ===
-        "REVIEW"
-      ) {
-        return "Login untuk Review";
-      }
 
-      if (
-        request?.action ===
-        "APPROVE"
-      ) {
-        return "Login untuk Approval";
-      }
+    /*
+     * REVIEW
+     * Hanya Reviewer.
+     */
 
-      return "Login";
-    };
+    if (
+      request?.action === "REVIEW"
+    ) {
 
-  const getDescription =
-    () => {
-      if (
-        request?.action ===
-        "CREATE"
-      ) {
-        return "Pilih user yang akan membuat pengajuan.";
-      }
+      return (
+        user.role === "REVIEWER"
+      );
 
-      if (
-        request?.action ===
-        "REVIEW"
-      ) {
-        return "Pilih user yang ditugaskan sebagai Reviewer pada dokumen.";
-      }
+    }
 
-      if (
-        request?.action ===
-        "APPROVE"
-      ) {
-        return "Pilih user yang ditugaskan sebagai Approver pada dokumen.";
-      }
 
-      return "Pilih user untuk melanjutkan.";
-    };
+    /*
+     * APPROVE
+     * Hanya Approver.
+     */
+
+    if (
+      request?.action === "APPROVE"
+    ) {
+
+      return (
+        user.role === "APPROVER"
+      );
+
+    }
+
+
+    return false;
+
+  });
+
+
+  const handleContinue = () => {
+
+    if (!selectedUserId) {
+      alert(
+        "Silakan pilih nama terlebih dahulu."
+      );
+
+      return;
+    }
+
+    onContinue(
+      Number(selectedUserId)
+    );
+  };
+
+
+  const getTitle = () => {
+
+    if (request?.action === "CREATE") {
+      return "Login untuk Membuat Pengajuan";
+    }
+
+    if (request?.action === "REVIEW") {
+      return "Login untuk Review";
+    }
+
+    if (request?.action === "APPROVE") {
+      return "Login untuk Approval";
+    }
+
+    return "Login";
+  };
+
+
+  const getDescription = () => {
+
+    if (request?.action === "CREATE") {
+      return "Pilih user yang akan membuat pengajuan.";
+    }
+
+    if (request?.action === "REVIEW") {
+      return "Pilih reviewer yang ditugaskan pada dokumen.";
+    }
+
+    if (request?.action === "APPROVE") {
+      return "Pilih approver yang ditugaskan pada dokumen.";
+    }
+
+    return "Pilih user untuk melanjutkan.";
+  };
+
 
   return (
+
     <div
       className="
         fixed
@@ -7173,6 +7334,7 @@ function AuthModal({
         p-4
       "
     >
+
       <div
         className="
           w-full
@@ -7183,11 +7345,11 @@ function AuthModal({
           shadow-xl
         "
       >
-        <div
-          className="
-            mb-5
-          "
-        >
+
+        {/* HEADER */}
+
+        <div className="mb-5">
+
           <h2
             className="
               text-xl
@@ -7195,9 +7357,7 @@ function AuthModal({
               text-slate-900
             "
           >
-            {
-              getTitle()
-            }
+            {getTitle()}
           </h2>
 
           <p
@@ -7207,13 +7367,16 @@ function AuthModal({
               text-slate-500
             "
           >
-            {
-              getDescription()
-            }
+            {getDescription()}
           </p>
+
         </div>
 
+
+        {/* USER SELECT */}
+
         <div>
+
           <label
             className="
               label
@@ -7221,6 +7384,7 @@ function AuthModal({
           >
             Nama Pengguna
           </label>
+
 
           <select
             className="
@@ -7237,12 +7401,15 @@ function AuthModal({
                 )
             }
           >
+
             <option value="">
               Pilih nama pengguna...
             </option>
 
+
             {availableUsers.map(
               user => (
+
                 <option
                   key={
                     user.id
@@ -7251,24 +7418,31 @@ function AuthModal({
                     user.id
                   }
                 >
-                  {
-                    user.name
-                  }
+
+                  {user.name}
+
                   {" — "}
-                  {
-                    user.position
-                  }
+
+                  {user.position}
+
                   {" · "}
-                  {
-                    user.area
-                  }
+
+                  {user.area}
+
                 </option>
+
               )
             )}
+
           </select>
+
         </div>
 
+
+        {/* INFO USER */}
+
         {selectedUserId && (
+
           <div
             className="
               mt-4
@@ -7278,16 +7452,14 @@ function AuthModal({
               text-sm
             "
           >
+
             {(() => {
+
               const selectedUser =
                 users.find(
                   user =>
-                    Number(
-                      user.id
-                    ) ===
-                    Number(
-                      selectedUserId
-                    )
+                    Number(user.id) ===
+                    Number(selectedUserId)
                 );
 
               if (!selectedUser) {
@@ -7295,16 +7467,16 @@ function AuthModal({
               }
 
               return (
+
                 <>
+
                   <div
                     className="
                       font-bold
                       text-slate-800
                     "
                   >
-                    {
-                      selectedUser.name
-                    }
+                    {selectedUser.name}
                   </div>
 
                   <div
@@ -7315,9 +7487,7 @@ function AuthModal({
                     "
                   >
                     NIK:{" "}
-                    {
-                      selectedUser.nik
-                    }
+                    {selectedUser.nik}
                   </div>
 
                   <div
@@ -7326,23 +7496,25 @@ function AuthModal({
                       text-slate-500
                     "
                   >
-                    {
-                      selectedUser.position
-                    }
+                    {selectedUser.position}
                     {" · "}
-                    {
-                      selectedUser.department
-                    }
+                    {selectedUser.department}
                     {" · "}
-                    {
-                      selectedUser.area
-                    }
+                    {selectedUser.area}
                   </div>
+
                 </>
+
               );
+
             })()}
+
           </div>
+
         )}
+
+
+        {/* BUTTON */}
 
         <div
           className="
@@ -7352,6 +7524,7 @@ function AuthModal({
             gap-2
           "
         >
+
           <button
             type="button"
             onClick={
@@ -7364,6 +7537,7 @@ function AuthModal({
             Batal
           </button>
 
+
           <button
             type="button"
             onClick={
@@ -7375,9 +7549,13 @@ function AuthModal({
           >
             Lanjutkan
           </button>
+
         </div>
+
       </div>
+
     </div>
+
   );
 }
 
