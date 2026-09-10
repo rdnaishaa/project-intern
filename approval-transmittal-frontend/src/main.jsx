@@ -493,364 +493,6 @@ function Badge({
 }
 
 
-/* =========================================================
-   SIGNATURE PAD
-========================================================= */
-
-function SignaturePad({
-  value,
-  onChange
-}) {
-
-  const canvasRef =
-    useRef(null);
-
-  const drawing =
-    useRef(false);
-
-  const hasDrawn =
-    useRef(false);
-
-
-  useEffect(() => {
-
-    const canvas =
-      canvasRef.current;
-
-    if (!canvas) {
-      return;
-    }
-
-    const ctx =
-      canvas.getContext(
-        "2d"
-      );
-
-    ctx.lineWidth = 3;
-
-    ctx.lineCap =
-      "round";
-
-    ctx.lineJoin =
-      "round";
-
-    ctx.strokeStyle =
-      "#172033";
-
-  }, []);
-
-
-  const getPoint = event => {
-
-    const canvas =
-      canvasRef.current;
-
-    const rect =
-      canvas.getBoundingClientRect();
-
-    return {
-
-      x:
-        (event.clientX -
-          rect.left) *
-        (canvas.width /
-          rect.width),
-
-      y:
-        (event.clientY -
-          rect.top) *
-        (canvas.height /
-          rect.height)
-
-    };
-  };
-
-
-  const startDrawing =
-    event => {
-
-      event.preventDefault();
-
-      const canvas =
-        canvasRef.current;
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-      const point =
-        getPoint(event);
-
-      drawing.current =
-        true;
-
-      hasDrawn.current =
-        true;
-
-      ctx.beginPath();
-
-      ctx.moveTo(
-        point.x,
-        point.y
-      );
-    };
-
-
-  const draw =
-    event => {
-
-      event.preventDefault();
-
-      if (
-        !drawing.current
-      ) {
-        return;
-      }
-
-      const canvas =
-        canvasRef.current;
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-      const point =
-        getPoint(event);
-
-      ctx.lineTo(
-        point.x,
-        point.y
-      );
-
-      ctx.stroke();
-    };
-
-
-  const finishDrawing =
-    () => {
-
-      if (
-        !drawing.current
-      ) {
-        return;
-      }
-
-      drawing.current =
-        false;
-
-      const canvas =
-        canvasRef.current;
-
-      if (
-        hasDrawn.current &&
-        canvas
-      ) {
-
-        /*
-          HASIL:
-          data:image/png;base64,...
-        */
-
-        const image =
-          canvas.toDataURL(
-            "image/png"
-          );
-
-        onChange(image);
-      }
-    };
-
-
-  const clear =
-    () => {
-
-      const canvas =
-        canvasRef.current;
-
-      if (!canvas) {
-        return;
-      }
-
-      const ctx =
-        canvas.getContext(
-          "2d"
-        );
-
-      ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-
-      drawing.current =
-        false;
-
-      hasDrawn.current =
-        false;
-
-      onChange("");
-    };
-
-
-  return (
-
-    <div>
-
-      <div
-        className="
-          rounded-xl
-          border-2
-          border-dashed
-          border-slate-300
-          bg-slate-50
-          p-2
-        "
-      >
-
-        <canvas
-
-          ref={
-            canvasRef
-          }
-
-          width="900"
-
-          height="250"
-
-          className="
-            h-40
-            w-full
-            touch-none
-            rounded-lg
-            bg-white
-          "
-
-          onPointerDown={
-            startDrawing
-          }
-
-          onPointerMove={
-            draw
-          }
-
-          onPointerUp={
-            finishDrawing
-          }
-
-          onPointerLeave={
-            finishDrawing
-          }
-
-          onPointerCancel={
-            finishDrawing
-          }
-
-        />
-
-      </div>
-
-
-      <div
-        className="
-          mt-2
-          flex
-          items-center
-          justify-between
-        "
-      >
-
-        <span
-          className="
-            text-xs
-            text-slate-400
-          "
-        >
-          Gambar tanda tangan
-          pada area di atas.
-        </span>
-
-
-        <button
-
-          type="button"
-
-          onClick={
-            clear
-          }
-
-          className="
-            text-xs
-            font-semibold
-            text-red-600
-          "
-        >
-          Hapus &
-          Gambar Ulang
-        </button>
-
-      </div>
-
-
-      {value && (
-
-        <div
-          className="
-            mt-3
-            rounded-xl
-            border
-            border-emerald-200
-            bg-emerald-50
-            p-3
-          "
-        >
-
-          <div
-            className="
-              mb-2
-              text-xs
-              font-bold
-              text-emerald-700
-            "
-          >
-            Signature berhasil
-            direkam ✓
-          </div>
-
-
-          <div
-            className="
-              flex
-              h-20
-              items-center
-              justify-center
-              rounded-lg
-              bg-white
-            "
-          >
-
-            <img
-              src={value}
-              alt="Preview tanda tangan"
-              className="
-                max-h-16
-                max-w-[250px]
-                object-contain
-              "
-            />
-
-          </div>
-
-        </div>
-
-      )}
-
-    </div>
-  );
-}
-
 function WhatsAppNotifications({
   notifications,
   onOpen
@@ -1075,9 +717,35 @@ function App() {
     docs,
     setDocs
   ] =
-    useState(
-      INITIAL_DOCS
-    );
+    useState(() => {
+      try {
+        const saved = localStorage.getItem("approval_transmittal_docs");
+        return saved ? JSON.parse(saved) : INITIAL_DOCS;
+      } catch (error) {
+        console.error("Gagal membaca data dokumen tersimpan:", error);
+        return INITIAL_DOCS;
+      }
+    });
+
+  useEffect(() => {
+    try {
+      // File object tidak bisa disimpan ke localStorage.
+      // Data dokumen/approval tetap disimpan agar record REJECTED
+      // masih tersedia setelah logout atau refresh.
+      const serializableDocs = docs.map(doc => {
+        const copy = { ...doc };
+        delete copy.file;
+        return copy;
+      });
+
+      localStorage.setItem(
+        "approval_transmittal_docs",
+        JSON.stringify(serializableDocs)
+      );
+    } catch (error) {
+      console.error("Gagal menyimpan data dokumen:", error);
+    }
+  }, [docs]);
 
 
   const [
@@ -1138,13 +806,6 @@ function App() {
     setActionContext
   ] =
     useState(null);
-
-
-  const [
-    previewFinal,
-    setPreviewFinal
-  ] =
-    useState(false);
 
 
   const [
@@ -1398,19 +1059,58 @@ function App() {
         .toISOString();
 
 
+    const revisionCount =
+      data.requestType === "REVISION"
+        ? docs.filter(
+            doc =>
+              Number(
+                doc.revisionOfId
+              ) ===
+              Number(
+                data.revisionOfId
+              )
+          ).length + 1
+        : 0;
+
     const no =
-      `TR-2026-${String(
-        docs.length + 1
-      ).padStart(
-        3,
-        "0"
-      )}`;
+      data.requestType === "REVISION"
+        ? `TR-2026-${String(
+            docs.length + 1
+          ).padStart(
+            3,
+            "0"
+          )}-R${String(
+            revisionCount
+          ).padStart(
+            2,
+            "0"
+          )}`
+        : `TR-2026-${String(
+            docs.length + 1
+          ).padStart(
+            3,
+            "0"
+          )}`;
 
 
     const newDoc = {
 
       ...data,
 
+      requestType:
+        data.requestType ||
+        "NEW",
+
+      revisionOfId:
+        data.revisionOfId
+          ? Number(
+              data.revisionOfId
+            )
+          : null,
+
+      revisionOfSubmissionNo:
+        data.revisionOfSubmissionNo ||
+        null,
 
       id:
         newId,
@@ -1496,10 +1196,6 @@ function App() {
 
 
             signedAt:
-              null,
-
-
-            signature:
               null
 
           })
@@ -1989,17 +1685,7 @@ if (
                         : null,
 
 
-                    /*
-                      Simpan gambar TTD.
-                    */
-
-                    signature:
-                      action ===
-                      "APPROVE"
-
-                        ? signature
-
-                        : null
+                    // Tidak ada tanda tangan digital pada versi ini.
 
                   };
 
@@ -2258,14 +1944,18 @@ if (
 
 
               /*
-                QR tetap ada dari awal.
+                QR hanya dibuat ketika seluruh approval selesai.
               */
 
               qr:
-                doc.qr ||
-                verificationUrl(
-                  doc.id
-                )
+                allApproved
+                  ? (
+                      doc.qr ||
+                      verificationUrl(
+                        doc.id
+                      )
+                    )
+                  : null
 
             };
 
@@ -2375,37 +2065,6 @@ if (
 
 
   /* =======================================================
-     FINAL DOCUMENT
-  ======================================================= */
-
-  if (
-    previewFinal &&
-    currentDoc
-  ) {
-
-    return (
-
-      <FinalDocumentPreview
-
-        doc={
-          currentDoc
-        }
-
-
-        onBack={() =>
-          setPreviewFinal(
-            false
-          )
-        }
-
-      />
-
-    );
-
-  }
-
-
-  /* =======================================================
      CONTENT
   ======================================================= */
 
@@ -2426,6 +2085,10 @@ if (
 
         users={
           users
+        }
+
+        docs={
+          docs
         }
 
         currentUser={
@@ -2630,15 +2293,7 @@ if (
             currentDoc?.id
           )
         }
-
-
-        onPreviewFinal={() =>
-          setPreviewFinal(
-            true
-          )
-        }
-
-      />
+/>
 
     );
 
@@ -3687,118 +3342,204 @@ function DocumentTable({
 
 function CreateRequest({
   users,
+  docs,
   currentUser,
   onSubmit,
   onCancel
 }) {
-
   /*
-    PEMOHON
-    Diambil dari database / MASTER_USERS.
+    Reviewer dan Approver sama-sama mengambil
+    SEMUA USER dari master database.
+
+    Role pada user bukan penentu apakah dia
+    Reviewer / Approver. Role ditentukan oleh
+    posisi user di approval chain.
   */
-
-
-  /*
-    REVIEWER
-    Hanya user dengan role REVIEWER
-    yang muncul di dropdown Reviewer.
-  */
-
-  const reviewerUsers =
+  const availableUsers =
     users.filter(
       user =>
-        user.role === "REVIEWER"
+        user.active !== false
     );
 
+  const revisionDocs =
+    currentUser
+      ? docs.filter(doc => {
+          const isOwner =
+            String(doc.applicantId) ===
+            String(currentUser.id);
 
-  /*
-    APPROVER
-    Hanya user dengan role APPROVER
-    yang muncul di dropdown Approver.
-  */
+          const isRejected =
+            doc.status === "REJECTED" ||
+            (Array.isArray(doc.steps) &&
+              doc.steps.some(
+                step => step.status === "REJECTED"
+              ));
 
-  const approverUsers =
-    users.filter(
-      user =>
-        user.role === "APPROVER"
-    );
-
-
-  /* =======================================================
-     STATE
-  ======================================================= */
+          return isOwner && isRejected;
+        })
+      : [];
 
   const [
     form,
     setForm
   ] = useState({
-
-    type:
-      "Transmittal",
-
-    title:
-      "",
-
-    description:
-      "",
-
-    department:
-      "",
-
-    area:
-      "",
-
-    fileName:
-      "",
-
-    documentLink:
-      ""
-
+    requestType: "NEW",
+    revisionOfId: "",
+    type: "Transmittal",
+    title: "",
+    description: "",
+    department: "",
+    area: "",
+    fileName: "",
+    documentLink: ""
   });
-
 
   const [
     file,
     setFile
   ] = useState(null);
 
-
-  /*
-    Menyimpan ID Reviewer
-    sesuai urutan dipilih.
-  */
-
   const [
     reviewerIds,
     setReviewerIds
   ] = useState([]);
-
-
-  /*
-    Menyimpan ID Approver
-    sesuai urutan dipilih.
-  */
 
   const [
     approverIds,
     setApproverIds
   ] = useState([]);
 
-  /* =======================================================
-     ADD REVIEWER
-  ======================================================= */
+  /*
+    Ketika memilih dokumen untuk revisi,
+    data dokumen sebelumnya dipakai sebagai
+    template agar pemohon tidak perlu mengisi
+    semuanya dari awal.
+  */
+  const handleRevisionChange =
+    id => {
+      if (!id) {
+        setForm(current => ({
+          ...current,
+          revisionOfId: "",
+          type: "Transmittal",
+          title: "",
+          description: "",
+          department: "",
+          area: "",
+          fileName: "",
+          documentLink: ""
+        }));
+
+        setFile(null);
+        setReviewerIds([]);
+        setApproverIds([]);
+        return;
+      }
+
+      const previousDoc =
+        docs.find(
+          doc =>
+            String(doc.id) ===
+            String(id)
+        );
+
+      if (!previousDoc) {
+        return;
+      }
+
+      setForm({
+        requestType: "REVISION",
+        revisionOfId:
+          String(previousDoc.id),
+        type:
+          previousDoc.type ||
+          "Transmittal",
+        title:
+          previousDoc.title ||
+          "",
+        description:
+          previousDoc.description ||
+          "",
+        department:
+          previousDoc.department ||
+          "",
+        area:
+          previousDoc.area ||
+          "",
+        fileName:
+          previousDoc.fileName ||
+          "",
+        documentLink:
+          previousDoc.documentLink ||
+          ""
+      });
+
+      /*
+        File lama dipakai kembali jika masih
+        tersedia di state browser.
+      */
+      setFile(
+        previousDoc.file ||
+        null
+      );
+
+      /*
+        Approval chain lama dijadikan default.
+        Pemohon tetap boleh mengubahnya.
+      */
+      const previousReviewers =
+        (previousDoc.steps || [])
+          .filter(
+            step =>
+              step.role ===
+              "REVIEWER"
+          )
+          .sort(
+            (a, b) =>
+              Number(a.order) -
+              Number(b.order)
+          )
+          .map(
+            step =>
+              Number(
+                step.approverId
+              )
+          );
+
+      const previousApprovers =
+        (previousDoc.steps || [])
+          .filter(
+            step =>
+              step.role ===
+              "APPROVER"
+          )
+          .sort(
+            (a, b) =>
+              Number(a.order) -
+              Number(b.order)
+          )
+          .map(
+            step =>
+              Number(
+                step.approverId
+              )
+          );
+
+      setReviewerIds(
+        previousReviewers
+      );
+
+      setApproverIds(
+        previousApprovers
+      );
+    };
 
   const addReviewer =
     id => {
-
       if (!id) return;
 
       const numericId =
         Number(id);
-
-      /*
-        Jangan duplicate.
-      */
 
       if (
         reviewerIds.includes(
@@ -3808,48 +3549,20 @@ function CreateRequest({
         return;
       }
 
-
       /*
-        User yang sudah menjadi Approver
-        tidak boleh menjadi Reviewer.
+        User boleh menjadi Reviewer DAN
+        Approver pada dokumen yang sama.
       */
-
-      if (
-        approverIds.includes(
-          numericId
-        )
-      ) {
-
-        alert(
-          "User ini sudah dipilih sebagai Approver."
-        );
-
-        return;
-      }
-
-
-      /*
-        Tambahkan ke paling belakang.
-        Ini menentukan urutan approval.
-      */
-
       setReviewerIds(
         current => [
           ...current,
           numericId
         ]
       );
-
     };
-
-
-  /* =======================================================
-     REMOVE REVIEWER
-  ======================================================= */
 
   const removeReviewer =
     id => {
-
       setReviewerIds(
         current =>
           current.filter(
@@ -3858,26 +3571,14 @@ function CreateRequest({
               Number(id)
           )
       );
-
     };
-
-
-  /* =======================================================
-     ADD APPROVER
-  ======================================================= */
 
   const addApprover =
     id => {
-
       if (!id) return;
 
       const numericId =
         Number(id);
-
-
-      /*
-        Jangan duplicate.
-      */
 
       if (
         approverIds.includes(
@@ -3887,47 +3588,20 @@ function CreateRequest({
         return;
       }
 
-
       /*
-        User yang sudah menjadi Reviewer
-        tidak boleh menjadi Approver.
+        User boleh menjadi Approver walaupun
+        sebelumnya juga dipilih sebagai Reviewer.
       */
-
-      if (
-        reviewerIds.includes(
-          numericId
-        )
-      ) {
-
-        alert(
-          "User ini sudah dipilih sebagai Reviewer."
-        );
-
-        return;
-      }
-
-
-      /*
-        Tambahkan ke paling belakang.
-      */
-
       setApproverIds(
         current => [
           ...current,
           numericId
         ]
       );
-
     };
-
-
-  /* =======================================================
-     REMOVE APPROVER
-  ======================================================= */
 
   const removeApprover =
     id => {
-
       setApproverIds(
         current =>
           current.filter(
@@ -3936,101 +3610,66 @@ function CreateRequest({
               Number(id)
           )
       );
-
     };
-
-
-  /* =======================================================
-     SUBMIT
-  ======================================================= */
 
   const submit =
     event => {
-
       event.preventDefault();
 
-
-      /*
-        VALIDASI PEMOHON
-      */
-
       if (!currentUser) {
-  alert(
-    "User belum login. Silakan login terlebih dahulu."
-  );
+        alert(
+          "User belum login. Silakan login terlebih dahulu."
+        );
+        return;
+      }
 
-  return;
-}
-
-
-      /*
-        VALIDASI JUDUL
-      */
+      if (
+        form.requestType ===
+          "REVISION" &&
+        !form.revisionOfId
+      ) {
+        alert(
+          "Silakan pilih dokumen yang akan direvisi."
+        );
+        return;
+      }
 
       if (
         !form.title.trim()
       ) {
-
         alert(
           "Nama/judul dokumen wajib diisi."
         );
-
         return;
       }
-
-
-      /*
-        VALIDASI DOKUMEN
-      */
 
       if (
         !file &&
         !form.documentLink
       ) {
-
         alert(
           "Upload dokumen atau masukkan link dokumen."
         );
-
         return;
       }
-
-
-      /*
-        MINIMAL 1 REVIEWER
-      */
 
       if (
         !reviewerIds.length
       ) {
-
         alert(
           "Minimal pilih satu Reviewer."
         );
-
         return;
       }
-
-
-      /*
-        MINIMAL 1 APPROVER
-      */
 
       if (
         !approverIds.length
       ) {
-
         alert(
           "Minimal pilih satu Approver."
         );
-
         return;
       }
-
-
-      /*
-        BUAT DATA REVIEWER
-      */
 
       const reviewers =
         reviewerIds
@@ -4045,19 +3684,11 @@ function CreateRequest({
           .filter(Boolean)
           .map(
             user => ({
-
               ...user,
-
               role:
                 "REVIEWER"
-
             })
           );
-
-
-      /*
-        BUAT DATA APPROVER
-      */
 
       const approvers =
         approverIds
@@ -4072,59 +3703,53 @@ function CreateRequest({
           .filter(Boolean)
           .map(
             user => ({
-
               ...user,
-
               role:
                 "APPROVER"
-
             })
           );
 
-
-      /*
-        URUTAN FINAL:
-
-        REVIEWER 1
-        REVIEWER 2
-        REVIEWER 3
-        ↓
-        APPROVER 1
-        APPROVER 2
-        APPROVER 3
-
-        dst.
-      */
+      const revisionDoc =
+        form.revisionOfId
+          ? docs.find(
+              doc =>
+                String(doc.id) ===
+                String(
+                  form.revisionOfId
+                )
+            )
+          : null;
 
       onSubmit({
+        ...form,
 
-  ...form,
+        applicantId:
+          currentUser.id,
 
-  applicantId:
-    currentUser.id,
+        applicantName:
+          currentUser.name,
 
-  applicantName:
-    currentUser.name,
+        file,
 
-  file,
+        revisionOfId:
+          form.revisionOfId
+            ? Number(
+                form.revisionOfId
+              )
+            : null,
 
-  approvalChain:
-    [
-      ...reviewers,
-      ...approvers
-    ]
+        revisionOfSubmissionNo:
+          revisionDoc?.submissionNo ||
+          null,
 
-});
-
+        approvalChain: [
+          ...reviewers,
+          ...approvers
+        ]
+      });
     };
 
-
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
   return (
-
     <form
       onSubmit={
         submit
@@ -4139,7 +3764,6 @@ function CreateRequest({
       ================================================= */}
 
       <div>
-
         <button
           type="button"
           onClick={
@@ -4155,7 +3779,6 @@ function CreateRequest({
           ← Kembali
         </button>
 
-
         <h1
           className="
             text-2xl
@@ -4165,7 +3788,6 @@ function CreateRequest({
           Buat Pengajuan
         </h1>
 
-
         <p
           className="
             mt-1
@@ -4173,221 +3795,379 @@ function CreateRequest({
             text-slate-500
           "
         >
-          Isi dokumen dan tentukan
-          urutan Reviewer serta Approver.
+          Buat pengajuan baru atau revisi
+          dokumen yang sebelumnya ditolak.
         </p>
-
       </div>
 
 
-     {/* =================================================
-    APPLICANT
-================================================= */}
+      {/* =================================================
+          JENIS PENGAJUAN
+      ================================================= */}
 
-<div
-  className="
-    card
-    p-5
-  "
->
-
-  <h2
-    className="
-      font-bold
-    "
-  >
-    Pemohon
-  </h2>
-
-
-  <div
-    className="
-      mt-4
-    "
-  >
-
-    <label
-      className="
-        label
-      "
-    >
-      Nama Pemohon
-    </label>
-
-
-    {/* =================================================
-        NAMA PEMOHON OTOMATIS DARI USER YANG LOGIN
-    ================================================= */}
-
-    <div
-      className="
-        input
-        flex
-        items-center
-        justify-between
-        bg-slate-50
-      "
-    >
-
-      <div>
+      <div
+        className="
+          card
+          p-5
+        "
+      >
+        <h2
+          className="
+            font-bold
+          "
+        >
+          Jenis Pengajuan
+        </h2>
 
         <div
           className="
-            font-medium
-            text-slate-800
+            mt-4
+            grid
+            gap-4
+            md:grid-cols-2
           "
         >
-          {
-            currentUser?.name ||
-            "User belum login"
-          }
+
+          <div>
+            <label
+              className="
+                label
+              "
+            >
+              Pilih Jenis
+            </label>
+
+            <select
+              className="
+                input
+              "
+              value={
+                form.requestType
+              }
+              onChange={
+                e => {
+                  const value =
+                    e.target.value;
+
+                  if (
+                    value ===
+                    "NEW"
+                  ) {
+                    setForm(
+                      current => ({
+                        ...current,
+                        requestType:
+                          "NEW",
+                        revisionOfId:
+                          ""
+                      })
+                    );
+
+                    setFile(null);
+                    setReviewerIds([]);
+                    setApproverIds([]);
+                  }
+                  else {
+                    setForm(
+                      current => ({
+                        ...current,
+                        requestType:
+                          "REVISION"
+                      })
+                    );
+                  }
+                }
+              }
+            >
+              <option value="NEW">
+                Pengajuan Baru
+              </option>
+
+              <option value="REVISION">
+                Revisi Pengajuan
+              </option>
+            </select>
+          </div>
+
+
+          {form.requestType ===
+            "REVISION" && (
+            <div>
+              <label
+                className="
+                  label
+                "
+              >
+                Dokumen yang Direvisi
+              </label>
+
+              <select
+                className="
+                  input
+                "
+                value={
+                  form.revisionOfId
+                }
+                onChange={
+                  e =>
+                    handleRevisionChange(
+                      e.target.value
+                    )
+                }
+              >
+                <option value="">
+                  Pilih dokumen...
+                </option>
+
+                {revisionDocs.map(
+                  doc => (
+                    <option
+                      key={
+                        doc.id
+                      }
+                      value={
+                        doc.id
+                      }
+                    >
+                      {doc.submissionNo}
+                      {" — "}
+                      {doc.title}
+                    </option>
+                  )
+                )}
+              </select>
+
+              {!revisionDocs.length && (
+                <p
+                  className="
+                    mt-2
+                    text-xs
+                    text-red-500
+                  "
+                >
+                  Belum ada dokumen ditolak
+                  milik user ini yang dapat
+                  direvisi.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
+        {form.requestType ===
+          "REVISION" &&
+          form.revisionOfId && (
+          <div
+            className="
+              mt-4
+              rounded-xl
+              border
+              border-amber-200
+              bg-amber-50
+              p-4
+              text-sm
+            "
+          >
+            <div
+              className="
+                font-semibold
+                text-amber-800
+              "
+            >
+              Revisi dari dokumen
+            </div>
 
-        {currentUser && (
+            <div
+              className="
+                mt-1
+                text-amber-700
+              "
+            >
+              {
+                revisionDocs.find(
+                  doc =>
+                    String(
+                      doc.id
+                    ) ===
+                    String(
+                      form.revisionOfId
+                    )
+                )?.submissionNo
+              }
+              {" — "}
+              {
+                revisionDocs.find(
+                  doc =>
+                    String(
+                      doc.id
+                    ) ===
+                    String(
+                      form.revisionOfId
+                    )
+                )?.title
+              }
+            </div>
+          </div>
+        )}
+      </div>
+
+
+      {/* =================================================
+          APPLICANT
+      ================================================= */}
+
+      <div
+        className="
+          card
+          p-5
+        "
+      >
+        <h2
+          className="
+            font-bold
+          "
+        >
+          Pemohon
+        </h2>
+
+        <div
+          className="
+            mt-4
+          "
+        >
+          <label
+            className="
+              label
+            "
+          >
+            Nama Pemohon
+          </label>
 
           <div
             className="
-              mt-1
-              text-xs
-              text-slate-400
+              input
+              flex
+              items-center
+              justify-between
+              bg-slate-50
             "
           >
+            <div>
+              <div
+                className="
+                  font-medium
+                  text-slate-800
+                "
+              >
+                {
+                  currentUser?.name ||
+                  "User belum login"
+                }
+              </div>
 
-            {
-              currentUser.position
-            }
+              {currentUser && (
+                <div
+                  className="
+                    mt-1
+                    text-xs
+                    text-slate-400
+                  "
+                >
+                  {
+                    currentUser.position
+                  }
+                  {" · "}
+                  {
+                    currentUser.area
+                  }
+                </div>
+              )}
+            </div>
 
-            {" · "}
-
-            {
-              currentUser.area
-            }
-
+            {currentUser && (
+              <span
+                className="
+                  rounded-full
+                  bg-green-100
+                  px-3
+                  py-1
+                  text-xs
+                  font-medium
+                  text-green-700
+                "
+              >
+                Logged in
+              </span>
+            )}
           </div>
+        </div>
 
+        {currentUser && (
+          <div
+            className="
+              mt-4
+              grid
+              gap-3
+              rounded-xl
+              bg-slate-50
+              p-4
+              text-sm
+              sm:grid-cols-3
+            "
+          >
+            <div>
+              <div
+                className="
+                  text-xs
+                  text-slate-400
+                "
+              >
+                NIK
+              </div>
+              <b>
+                {
+                  currentUser.nik ||
+                  "-"
+                }
+              </b>
+            </div>
+
+            <div>
+              <div
+                className="
+                  text-xs
+                  text-slate-400
+                "
+              >
+                Department
+              </div>
+              <b>
+                {
+                  currentUser.department ||
+                  "-"
+                }
+              </b>
+            </div>
+
+            <div>
+              <div
+                className="
+                  text-xs
+                  text-slate-400
+                "
+              >
+                Area
+              </div>
+              <b>
+                {
+                  currentUser.area ||
+                  "-"
+                }
+              </b>
+            </div>
+          </div>
         )}
-
       </div>
-
-
-      {/* Badge login */}
-
-      {currentUser && (
-
-        <span
-          className="
-            rounded-full
-            bg-green-100
-            px-3
-            py-1
-            text-xs
-            font-medium
-            text-green-700
-          "
-        >
-          Logged in
-        </span>
-
-      )}
-
-    </div>
-
-  </div>
-
-
-  {/* =================================================
-      DETAIL USER
-  ================================================= */}
-
-  {currentUser && (
-
-    <div
-      className="
-        mt-4
-        grid
-        gap-3
-        rounded-xl
-        bg-slate-50
-        p-4
-        text-sm
-        sm:grid-cols-3
-      "
-    >
-
-      {/* NIK */}
-
-      <div>
-
-        <div
-          className="
-            text-xs
-            text-slate-400
-          "
-        >
-          NIK
-        </div>
-
-        <b>
-          {
-            currentUser.nik ||
-            "-"
-          }
-        </b>
-
-      </div>
-
-
-      {/* Department */}
-
-      <div>
-
-        <div
-          className="
-            text-xs
-            text-slate-400
-          "
-        >
-          Department
-        </div>
-
-        <b>
-          {
-            currentUser.department ||
-            "-"
-          }
-        </b>
-
-      </div>
-
-
-      {/* Area */}
-
-      <div>
-
-        <div
-          className="
-            text-xs
-            text-slate-400
-          "
-        >
-          Area
-        </div>
-
-        <b>
-          {
-            currentUser.area ||
-            "-"
-          }
-        </b>
-
-      </div>
-
-    </div>
-
-  )}
-
-</div>
 
 
       {/* =================================================
@@ -4400,7 +4180,6 @@ function CreateRequest({
           p-5
         "
       >
-
         <h2
           className="
             font-bold
@@ -4408,7 +4187,6 @@ function CreateRequest({
         >
           Informasi Dokumen
         </h2>
-
 
         <div
           className="
@@ -4419,10 +4197,7 @@ function CreateRequest({
           "
         >
 
-          {/* JENIS DOKUMEN */}
-
           <div>
-
             <label
               className="
                 label
@@ -4430,7 +4205,6 @@ function CreateRequest({
             >
               Jenis Dokumen
             </label>
-
 
             <select
               className="
@@ -4443,38 +4217,27 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
-
                       ...current,
-
                       type:
                         e.target.value
-
                     })
                   )
               }
             >
-
               <option>
                 Transmittal
               </option>
-
               <option>
                 Surat
               </option>
-
               <option>
                 Memo
               </option>
-
             </select>
-
           </div>
 
 
-          {/* TITLE */}
-
           <div>
-
             <label
               className="
                 label
@@ -4482,7 +4245,6 @@ function CreateRequest({
             >
               Judul / Nama Dokumen
             </label>
-
 
             <input
               className="
@@ -4495,24 +4257,17 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
-
                       ...current,
-
                       title:
                         e.target.value
-
                     })
                   )
               }
             />
-
           </div>
 
 
-          {/* DEPARTMENT */}
-
           <div>
-
             <label
               className="
                 label
@@ -4520,7 +4275,6 @@ function CreateRequest({
             >
               Departemen
             </label>
-
 
             <input
               className="
@@ -4533,24 +4287,17 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
-
                       ...current,
-
                       department:
                         e.target.value
-
                     })
                   )
               }
             />
-
           </div>
 
 
-          {/* AREA */}
-
           <div>
-
             <label
               className="
                 label
@@ -4558,7 +4305,6 @@ function CreateRequest({
             >
               Area
             </label>
-
 
             <input
               className="
@@ -4571,36 +4317,28 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
-
                       ...current,
-
                       area:
                         e.target.value
-
                     })
                   )
               }
             />
-
           </div>
 
-
-          {/* DESCRIPTION */}
 
           <div
             className="
               md:col-span-2
             "
           >
-
             <label
               className="
                 label
               "
             >
-              Keperluan / Deskripsi
+              Keperluan
             </label>
-
 
             <textarea
               className="
@@ -4614,111 +4352,46 @@ function CreateRequest({
                 e =>
                   setForm(
                     current => ({
-
                       ...current,
-
                       description:
                         e.target.value
-
                     })
                   )
               }
             />
-
           </div>
-
         </div>
 
-      </div>
 
-
-      {/* =================================================
-          DOCUMENT FILE
-      ================================================= */}
-
-      <div
-        className="
-          card
-          p-5
-        "
-      >
-
-        <h2
-          className="
-            font-bold
-          "
-        >
-          Dokumen Attachment
-        </h2>
-
+        {/* DOCUMENT UPLOAD */}
 
         <div
           className="
             mt-4
-            grid
-            gap-4
-            md:grid-cols-2
           "
         >
-
-          {/* FILE */}
-
           <label
             className="
-              flex
-              cursor-pointer
-              items-center
-              gap-4
+              label
+            "
+          >
+            Dokumen
+          </label>
+
+          <div
+            className="
+              mt-2
               rounded-xl
               border-2
               border-dashed
               border-slate-300
-              p-5
+              p-4
             "
           >
-
-            <Upload
-              className="
-                text-[#1261A0]
-              "
-            />
-
-
-            <div>
-
-              <b>
-                {
-                  file
-                    ? file.name
-                    : "Pilih file"
-                }
-              </b>
-
-              <div
-                className="
-                  text-xs
-                  text-slate-500
-                "
-              >
-                PDF / DOC / DOCX
-              </div>
-
-            </div>
-
-
             <input
               type="file"
-              accept="
-                .pdf,
-                .doc,
-                .docx
-              "
-              className="
-                hidden
-              "
               onChange={
                 e => {
-
                   const selected =
                     e.target.files?.[0] ||
                     null;
@@ -4727,68 +4400,71 @@ function CreateRequest({
                     selected
                   );
 
-
-                  setForm(
-                    current => ({
-
-                      ...current,
-
-                      fileName:
-                        selected?.name ||
-                        ""
-
-                    })
-                  );
-
+                  if (
+                    selected
+                  ) {
+                    setForm(
+                      current => ({
+                        ...current,
+                        fileName:
+                          selected.name
+                      })
+                    );
+                  }
                 }
               }
             />
 
-          </label>
-
-
-          {/* LINK */}
-
-          <div>
-
-            <label
+            <p
               className="
-                label
+                mt-2
+                text-xs
+                text-slate-400
               "
             >
-              Atau Link Dokumen
-            </label>
-
-
-            <input
-              className="
-                input
-              "
-              placeholder="
-                https://...
-              "
-              value={
-                form.documentLink
-              }
-              onChange={
-                e =>
-                  setForm(
-                    current => ({
-
-                      ...current,
-
-                      documentLink:
-                        e.target.value
-
-                    })
-                  )
-              }
-            />
-
+              {file?.name ||
+                form.fileName ||
+                "Belum ada file dipilih."}
+            </p>
           </div>
-
         </div>
 
+
+        <div
+          className="
+            mt-4
+          "
+        >
+          <label
+            className="
+              label
+            "
+          >
+            Atau Link Dokumen
+          </label>
+
+          <input
+            className="
+              input
+            "
+            placeholder="
+              https://...
+            "
+            value={
+              form.documentLink
+            }
+            onChange={
+              e =>
+                setForm(
+                  current => ({
+                    ...current,
+                    documentLink:
+                      e.target.value
+                  })
+                )
+            }
+          />
+        </div>
       </div>
 
 
@@ -4802,7 +4478,6 @@ function CreateRequest({
           p-5
         "
       >
-
         <div
           className="
             flex
@@ -4810,9 +4485,7 @@ function CreateRequest({
             justify-between
           "
         >
-
           <div>
-
             <h2
               className="
                 font-bold
@@ -4828,28 +4501,22 @@ function CreateRequest({
                 text-slate-500
               "
             >
-              Pilih Reviewer dari database.
-              Urutan mengikuti urutan pilihan.
+              Pilih orang dari master database.
+              Tidak ada pembatasan role.
             </p>
-
           </div>
-
 
           <Badge
             status="REVIEWER"
           />
-
         </div>
 
-
-        {/* DROPDOWN */}
 
         <div
           className="
             mt-4
           "
         >
-
           <select
             className="
               input
@@ -4862,26 +4529,21 @@ function CreateRequest({
                 )
             }
           >
-
-            <option
-              value=""
-            >
-              + Pilih Reviewer dari database
+            <option value="">
+              + Pilih Reviewer
             </option>
 
-
-            {reviewerUsers
+            {availableUsers
               .filter(
-                reviewer =>
+                user =>
                   !reviewerIds.includes(
                     Number(
-                      reviewer.id
+                      user.id
                     )
                   )
               )
               .map(
                 reviewer => (
-
                   <option
                     key={
                       reviewer.id
@@ -4890,34 +4552,23 @@ function CreateRequest({
                       reviewer.id
                     }
                   >
-
                     {
                       reviewer.name
                     }
-
                     {" — "}
-
                     {
                       reviewer.position
                     }
-
                     {" · "}
-
                     {
                       reviewer.area
                     }
-
                   </option>
-
                 )
               )}
-
           </select>
-
         </div>
 
-
-        {/* SELECTED REVIEWERS */}
 
         <div
           className="
@@ -4925,13 +4576,11 @@ function CreateRequest({
             space-y-2
           "
         >
-
           {reviewerIds.map(
             (
               id,
               index
             ) => {
-
               const reviewer =
                 users.find(
                   user =>
@@ -4941,13 +4590,10 @@ function CreateRequest({
                     Number(id)
                 );
 
-
               if (!reviewer)
                 return null;
 
-
               return (
-
                 <div
                   key={
                     reviewer.id
@@ -4963,7 +4609,6 @@ function CreateRequest({
                     p-3
                   "
                 >
-
                   <div
                     className="
                       grid
@@ -4978,16 +4623,16 @@ function CreateRequest({
                       text-white
                     "
                   >
-                    {index + 1}
+                    {
+                      index + 1
+                    }
                   </div>
-
 
                   <div
                     className="
                       flex-1
                     "
                   >
-
                     <div
                       className="
                         font-semibold
@@ -5014,9 +4659,7 @@ function CreateRequest({
                         reviewer.area
                       }
                     </div>
-
                   </div>
-
 
                   <button
                     type="button"
@@ -5034,16 +4677,11 @@ function CreateRequest({
                   >
                     Hapus
                   </button>
-
                 </div>
-
               );
-
             }
           )}
-
         </div>
-
       </div>
 
 
@@ -5057,7 +4695,6 @@ function CreateRequest({
           p-5
         "
       >
-
         <div
           className="
             flex
@@ -5065,9 +4702,7 @@ function CreateRequest({
             justify-between
           "
         >
-
           <div>
-
             <h2
               className="
                 font-bold
@@ -5083,29 +4718,23 @@ function CreateRequest({
                 text-slate-500
               "
             >
-              Approver dimulai setelah seluruh
-              Reviewer selesai.
-              Urutan mengikuti urutan pilihan.
+              Pilih orang dari master database.
+              Orang yang sama boleh menjadi
+              Reviewer dan Approver.
             </p>
-
           </div>
-
 
           <Badge
             status="APPROVER"
           />
-
         </div>
 
-
-        {/* DROPDOWN */}
 
         <div
           className="
             mt-4
           "
         >
-
           <select
             className="
               input
@@ -5118,26 +4747,21 @@ function CreateRequest({
                 )
             }
           >
-
-            <option
-              value=""
-            >
-              + Pilih Approver dari database
+            <option value="">
+              + Pilih Approver
             </option>
 
-
-            {approverUsers
+            {availableUsers
               .filter(
-                approver =>
+                user =>
                   !approverIds.includes(
                     Number(
-                      approver.id
+                      user.id
                     )
                   )
               )
               .map(
                 approver => (
-
                   <option
                     key={
                       approver.id
@@ -5146,34 +4770,23 @@ function CreateRequest({
                       approver.id
                     }
                   >
-
                     {
                       approver.name
                     }
-
                     {" — "}
-
                     {
                       approver.position
                     }
-
                     {" · "}
-
                     {
                       approver.area
                     }
-
                   </option>
-
                 )
               )}
-
           </select>
-
         </div>
 
-
-        {/* SELECTED APPROVERS */}
 
         <div
           className="
@@ -5181,13 +4794,11 @@ function CreateRequest({
             space-y-2
           "
         >
-
           {approverIds.map(
             (
               id,
               index
             ) => {
-
               const approver =
                 users.find(
                   user =>
@@ -5197,13 +4808,10 @@ function CreateRequest({
                     Number(id)
                 );
 
-
               if (!approver)
                 return null;
 
-
               return (
-
                 <div
                   key={
                     approver.id
@@ -5219,7 +4827,6 @@ function CreateRequest({
                     p-3
                   "
                 >
-
                   <div
                     className="
                       grid
@@ -5241,13 +4848,11 @@ function CreateRequest({
                     }
                   </div>
 
-
                   <div
                     className="
                       flex-1
                     "
                   >
-
                     <div
                       className="
                         font-semibold
@@ -5274,9 +4879,7 @@ function CreateRequest({
                         approver.area
                       }
                     </div>
-
                   </div>
-
 
                   <button
                     type="button"
@@ -5294,16 +4897,11 @@ function CreateRequest({
                   >
                     Hapus
                   </button>
-
                 </div>
-
               );
-
             }
           )}
-
         </div>
-
       </div>
 
 
@@ -5313,7 +4911,6 @@ function CreateRequest({
 
       {(reviewerIds.length ||
         approverIds.length) > 0 && (
-
         <div
           className="
             card
@@ -5322,7 +4919,6 @@ function CreateRequest({
             p-5
           "
         >
-
           <h2
             className="
               font-bold
@@ -5332,7 +4928,6 @@ function CreateRequest({
             Urutan Approval
           </h2>
 
-
           <p
             className="
               mt-1
@@ -5340,10 +4935,10 @@ function CreateRequest({
               text-slate-500
             "
           >
-            Reviewer selalu diproses terlebih dahulu,
-            kemudian Approver.
+            Reviewer diproses terlebih dahulu,
+            kemudian Approver. Orang yang sama
+            boleh muncul di kedua tahap.
           </p>
-
 
           <div
             className="
@@ -5351,7 +4946,6 @@ function CreateRequest({
               space-y-2
             "
           >
-
             {[
               ...reviewerIds,
               ...approverIds
@@ -5360,7 +4954,6 @@ function CreateRequest({
                 id,
                 index
               ) => {
-
                 const selected =
                   users.find(
                     user =>
@@ -5370,19 +4963,16 @@ function CreateRequest({
                       Number(id)
                   );
 
-
                 const stage =
                   index <
                   reviewerIds.length
                     ? "REVIEWER"
                     : "APPROVER";
 
-
                 return (
-
                   <div
                     key={
-                      `${stage}-${id}`
+                      `${stage}-${id}-${index}`
                     }
                     className="
                       flex
@@ -5393,7 +4983,6 @@ function CreateRequest({
                       p-3
                     "
                   >
-
                     <span
                       className="
                         grid
@@ -5409,13 +4998,11 @@ function CreateRequest({
                       {index + 1}
                     </span>
 
-
                     <div
                       className="
                         flex-1
                       "
                     >
-
                       <b>
                         {
                           selected?.name
@@ -5431,41 +5018,28 @@ function CreateRequest({
                         {
                           stage
                         }
-
                         {" · "}
-
                         {
                           selected?.position
                         }
-
                         {" · "}
-
                         {
                           selected?.area
                         }
-
                       </div>
-
                     </div>
-
 
                     <Badge
                       status={
                         stage
                       }
                     />
-
                   </div>
-
                 );
-
               }
             )}
-
           </div>
-
         </div>
-
       )}
 
 
@@ -5480,7 +5054,6 @@ function CreateRequest({
           gap-2
         "
       >
-
         <button
           type="button"
           className="
@@ -5493,28 +5066,21 @@ function CreateRequest({
           Batal
         </button>
 
-
         <button
           type="submit"
           className="
             btn-primary
           "
         >
-
           Submit Pengajuan
 
           <ChevronRight
             size={17}
           />
-
         </button>
-
       </div>
-
     </form>
-
   );
-
 }
 
 
@@ -5530,703 +5096,171 @@ function Detail({
   onBack,
   onRequestAction,
   onApprove,
-  verify,
-  onPreviewFinal
+  verify
 }) {
-
-  const [
-    signature,
-    setSignature
-  ] =
-    useState("");
-
-
-  const [
-    comment,
-    setComment
-  ] =
-    useState("");
-
+  const currentStep = getCurrentStep(doc);
 
   if (!doc) {
-
     return (
-
-      <div
-        className="
-          p-5
-          text-slate-500
-        "
-      >
+      <div className="p-5 text-slate-500">
         Dokumen tidak ditemukan.
       </div>
-
     );
   }
 
-
-  /*
-    ACTION MODE
-  */
-
-  if (
-    actionUser &&
-    actionStep
-  ) {
-
+  if (actionUser && actionStep) {
     return (
-
       <ActionMode
-
-        user={
-          actionUser
-        }
-
-        doc={
-          doc
-        }
-
-        step={
-          actionStep
-        }
-
-        signature={
-          signature
-        }
-
-        setSignature={
-          setSignature
-        }
-
-        comment={
-          comment
-        }
-
-        setComment={
-          setComment
-        }
-
-        onBack={
-          onBack
-        }
-
-        onApprove={
-          onApprove
-        }
-
+        user={actionUser}
+        doc={doc}
+        step={actionStep}
+        comment={""}
+        setComment={() => {}}
+        onBack={onBack}
+        onApprove={onApprove}
       />
-
     );
   }
 
-
-  const currentStep =
-    getCurrentStep(
-      doc
-    );
-
-
-  const completed =
-    doc.steps.filter(
-      step =>
-        step.status ===
-        "APPROVED"
-    ).length;
-
+  const completed = doc.steps.filter(
+    step => step.status === "APPROVED"
+  ).length;
 
   return (
-
     <>
-
       <button
-
-        onClick={
-          onBack
-        }
-
-        className="
-          mb-4
-          text-sm
-          font-semibold
-          text-[#1261A0]
-        "
+        onClick={onBack}
+        className="mb-4 text-sm font-semibold text-[#1261A0]"
       >
         ← Kembali
       </button>
 
-
-      <div
-        className="
-          mb-5
-          flex
-          flex-col
-          justify-between
-          gap-3
-          md:flex-row
-          md:items-end
-        "
-      >
-
+      <div className="mb-5 flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
-
-          <div
-            className="
-              text-xs
-              font-bold
-              uppercase
-              text-slate-400
-            "
-          >
-            {
-              doc.submissionNo
-            }
+          <div className="text-xs font-bold uppercase text-slate-400">
+            {doc.submissionNo}
           </div>
 
-
-          <h1
-            className="
-              mt-1
-              text-2xl
-              font-extrabold
-            "
-          >
-            {
-              doc.title
-            }
+          <h1 className="mt-1 text-2xl font-extrabold">
+            {doc.title}
           </h1>
 
-
-          <p
-            className="
-              text-sm
-              text-slate-500
-            "
-          >
-            {
-              doc.type
-            }
-            {" · "}
-            {
-              doc.department
-            }
-            {" · "}
-            {
-              doc.area
-            }
+          <p className="text-sm text-slate-500">
+            {doc.type}{" · "}{doc.department}{" · "}{doc.area}
           </p>
-
         </div>
 
-
-        <Badge
-          status={
-            doc.status
-          }
-        />
-
+        <Badge status={doc.status} />
       </div>
 
-
-      <div
-        className="
-          grid
-          gap-5
-          xl:grid-cols-[1.25fr_.75fr]
-        "
-      >
-
-        <div
-          className="
-            space-y-5
-          "
-        >
-
-          <DocumentInfo
-            doc={
-              doc
-            }
-          />
-
+      <div className="grid gap-5 xl:grid-cols-[1.25fr_.75fr]">
+        <div className="space-y-5">
+          <DocumentInfo doc={doc} />
 
           <ApprovalChain
-            doc={
-              doc
-            }
-
-            activeStep={
-              currentStep
-            }
-
+            doc={doc}
+            activeStep={currentStep}
+            isPublic={!user}
           />
-
         </div>
 
-
-        <div
-          className="
-            space-y-5
-          "
-        >
-
+        <div className="space-y-5">
           {currentStep &&
-            doc.status ===
-              "IN_APPROVAL" && (
-
-            <div
-              className="
-                card
-                border-blue-200
-                bg-blue-50/40
-                p-5
-              "
-            >
-
-              <div
-                className="
-                  text-xs
-                  font-bold
-                  uppercase
-                  text-[#1261A0]
-                "
-              >
-                Current Action
-              </div>
-
-
-              <h2
-                className="
-                  mt-1
-                  font-bold
-                  text-[#1261A0]
-                "
-              >
-                {currentStep.role ===
-                "REVIEWER"
-                  ? "Dokumen membutuhkan review"
-                  : "Dokumen membutuhkan approval"}
-              </h2>
-
-
-              <div
-                className="
-                  mt-3
-                  rounded-xl
-                  bg-white
-                  p-3
-                "
-              >
-
-                <b>
-                  {
-                    currentStep.approverName
-                  }
-                </b>
-
-                <div
-                  className="
-                    text-xs
-                    text-slate-500
-                  "
-                >
-                  {
-                    currentStep.role
-                  }
-                  {" · "}
-                  {
-                    currentStep.position
-                  }
-                  {" · "}
-                  {
-                    currentStep.area
-                  }
+            doc.status === "IN_APPROVAL" && (
+              <div className="card border-blue-200 bg-blue-50/40 p-5">
+                <div className="text-xs font-bold uppercase text-[#1261A0]">
+                  Current Action
                 </div>
 
+                <h2 className="mt-1 font-bold text-[#1261A0]">
+                  {currentStep.role === "REVIEWER"
+                    ? "Dokumen membutuhkan review"
+                    : "Dokumen membutuhkan approval"}
+                </h2>
+
+                <div className="mt-3 rounded-xl bg-white p-3">
+                  <b>{currentStep.approverName}</b>
+
+                  <div className="text-xs text-slate-500">
+                    {currentStep.role}{" · "}
+                    {currentStep.position}{" · "}
+                    {currentStep.area}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-primary mt-4 w-full"
+                  onClick={() =>
+                    onRequestAction(doc, currentStep)
+                  }
+                >
+                  {currentStep.role === "REVIEWER"
+                    ? "Review Now"
+                    : "Approve Now"}
+
+                  <ChevronRight size={17} />
+                </button>
               </div>
+            )}
 
-
-              <button
-
-                type="button"
-
-                className="
-                  btn-primary
-                  mt-4
-                  w-full
-                "
-
-                onClick={() =>
-                  onRequestAction(
-                    doc,
-                    currentStep
-                  )
-                }
-              >
-
-                {currentStep.role ===
-                "REVIEWER"
-                  ? "Review Now"
-                  : "Approve Now"}
-
-                <ChevronRight
-                  size={17}
-                />
-
-              </button>
-
-            </div>
-
-          )}
-
-
-          {doc.status ===
-            "REJECTED" && (
-
-            <div
-              className="
-                card
-                border-red-200
-                bg-red-50
-                p-5
-              "
-            >
-
-              <div
-                className="
-                  flex
-                  items-center
-                  gap-2
-                  font-bold
-                  text-red-700
-                "
-              >
+          {doc.status === "REJECTED" && (
+            <div className="card border-red-200 bg-red-50 p-5">
+              <div className="flex items-center gap-2 font-bold text-red-700">
                 <XCircle />
-
                 Pengajuan Ditolak
               </div>
 
-
-              <p
-                className="
-                  mt-2
-                  text-sm
-                  text-red-700
-                "
-              >
-                Pemohon perlu melakukan
-                revisi sebelum pengajuan
-                diproses kembali.
+              <p className="mt-2 text-sm text-red-700">
+                Pemohon perlu melakukan revisi sebelum pengajuan
+                diproses kembali. Catatan penolakan per sequence
+                tersedia pada Approval Chain.
               </p>
 
-            </div>
-
-          )}
-
-
-          <div
-            className="
-              card
-              p-5
-            "
-          >
-
-            <h2
-              className="
-                font-bold
-              "
-            >
-              Verification QR
-            </h2>
-
-
-            <p
-              className="
-                mt-1
-                text-sm
-                text-slate-500
-              "
-            >
-              QR dapat dibuka publik untuk
-              melihat progress approval.
-            </p>
-
-
-            <div
-              className="
-                mt-4
-                rounded-xl
-                bg-white
-                p-4
-                text-center
-              "
-            >
-
-              <QRCodeSVG
-
-                value={
-                  doc.qr ||
-                  verificationUrl(
-                    doc.id
-                  )
-                }
-
-                size={
-                  190
-                }
-
-              />
-
-
-              <div
-                className="
-                  mt-3
-                  text-xs
-                  text-slate-500
-                "
-              >
-                {
-                  completed
-                }
-                /
-                {
-                  doc.steps.length
-                }
-                approval selesai
+              <div className="mt-4 space-y-2">
+                {doc.steps
+                  .filter(step => step.status === "REJECTED" && step.comment)
+                  .map(step => (
+                    <div
+                      key={step.id}
+                      className="rounded-xl border border-red-200 bg-white p-3 text-sm"
+                    >
+                      <div className="font-semibold text-red-700">
+                        Sequence {step.order} · {step.approverName}
+                      </div>
+                      <div className="mt-1 text-slate-600">
+                        {step.comment}
+                      </div>
+                    </div>
+                  ))}
               </div>
-
-
-              <button
-
-                type="button"
-
-                className="
-                  btn-secondary
-                  mt-3
-                "
-
-                onClick={
-                  verify
-                }
-              >
-
-                <QrCode
-                  size={16}
-                />
-
-                Buka Verification
-
-              </button>
-
             </div>
-
-          </div>
-
-
-          {/* =================================================
-              FINAL DOCUMENT
-          ================================================= */}
+          )}
 
           {doc.status === "APPROVED" && (
-
-            <div
-              className="
-                card
-                p-5
-              "
-            >
-
-              <div>
-
-                <div
-                  className="
-                    text-xs
-                    font-bold
-                    uppercase
-                    text-emerald-600
-                  "
-                >
-                  Approval Selesai
-                </div>
-
-                <h2
-                  className="
-                    mt-1
-                    font-bold
-                  "
-                >
-                  Dokumen Final
-                </h2>
-
-                <p
-                  className="
-                    mt-1
-                    text-sm
-                    text-slate-500
-                  "
-                >
-                  Seluruh tahapan approval telah selesai.
-                  Dokumen final hanya dapat dilihat oleh
-                  pengguna yang memiliki hak akses.
-                </p>
-
-              </div>
-
-
-              {/* BELUM LOGIN */}
-
-              {!user && (
-
-                <div
-                  className="
-                    mt-4
-                    rounded-xl
-                    border
-                    border-slate-200
-                    bg-slate-50
-                    p-4
-                  "
-                >
-
-                  <div
-                    className="
-                      font-semibold
-                      text-slate-800
-                    "
-                  >
-                    Dokumen final bersifat privat
-                  </div>
-
-                  <p
-                    className="
-                      mt-1
-                      text-sm
-                      text-slate-500
-                    "
-                  >
-                    Silakan login sebagai pemohon, reviewer,
-                    atau approver yang terkait untuk melihat
-                    dokumen final.
-                  </p>
-
-                </div>
-
-              )}
-
-
-              {/* SUDAH LOGIN DAN MEMILIKI AKSES */}
-
-              {user &&
-                canAccessFinalDocument(
-                  doc,
-                  user
-                ) && (
-
-                <div
-                  className="
-                    mt-4
-                  "
-                >
-
-                  <button
-                    type="button"
-                    className="
-                      btn-primary
-                      w-full
-                    "
-                    onClick={
-                      onPreviewFinal
-                    }
-                  >
-
-                    <FileText
-                      size={17}
-                    />
-
-                    Lihat Dokumen Final
-
-                    <ChevronRight
-                      size={17}
-                    />
-
-                  </button>
-
-                </div>
-
-              )}
-
-
-              {/* SUDAH LOGIN TAPI TIDAK MEMILIKI AKSES */}
-
-              {user &&
-                !canAccessFinalDocument(
-                  doc,
-                  user
-                ) && (
-
-                <div
-                  className="
-                    mt-4
-                    rounded-xl
-                    border
-                    border-red-200
-                    bg-red-50
-                    p-4
-                  "
-                >
-
-                  <div
-                    className="
-                      font-semibold
-                      text-red-700
-                    "
-                  >
-                    Access Denied
-                  </div>
-
-                  <p
-                    className="
-                      mt-1
-                      text-sm
-                      text-red-600
-                    "
-                  >
-                    Akun Anda tidak memiliki hak akses
-                    untuk melihat dokumen final ini.
-                  </p>
-
-                </div>
-
-              )}
-
-            </div>
-
+            <QRCodeCard doc={doc} />
           )}
-
         </div>
-
       </div>
-
     </>
   );
 }
 
 
-/* =========================================================
-   DOCUMENT INFO
-========================================================= */
-
 function DocumentInfo({
   doc
 }) {
+  const isRevision =
+    doc.requestType ===
+    "REVISION";
 
   return (
-
     <div
       className="
         card
         p-5
       "
     >
-
       <h2
         className="
           font-bold
@@ -6234,7 +5268,6 @@ function DocumentInfo({
       >
         Informasi Dokumen
       </h2>
-
 
       <div
         className="
@@ -6245,9 +5278,7 @@ function DocumentInfo({
           sm:grid-cols-2
         "
       >
-
         <div>
-
           <small
             className="
               text-slate-400
@@ -6265,12 +5296,31 @@ function DocumentInfo({
               doc.applicantName
             }
           </div>
-
         </div>
 
+        <div>
+          <small
+            className="
+              text-slate-400
+            "
+          >
+            Jenis Pengajuan
+          </small>
+
+          <div
+            className="
+              font-semibold
+            "
+          >
+            {
+              isRevision
+                ? "Revisi Pengajuan"
+                : "Pengajuan Baru"
+            }
+          </div>
+        </div>
 
         <div>
-
           <small
             className="
               text-slate-400
@@ -6288,12 +5338,9 @@ function DocumentInfo({
               doc.department
             }
           </div>
-
         </div>
 
-
         <div>
-
           <small
             className="
               text-slate-400
@@ -6311,12 +5358,9 @@ function DocumentInfo({
               doc.area
             }
           </div>
-
         </div>
 
-
         <div>
-
           <small
             className="
               text-slate-400
@@ -6336,16 +5380,37 @@ function DocumentInfo({
               )
             }
           </div>
-
         </div>
 
+        {isRevision && (
+          <div>
+            <small
+              className="
+                text-slate-400
+              "
+            >
+              Dokumen yang Direvisi
+            </small>
+
+            <div
+              className="
+                font-semibold
+                text-[#1261A0]
+              "
+            >
+              {
+                doc.revisionOfSubmissionNo ||
+                "-"
+              }
+            </div>
+          </div>
+        )}
 
         <div
           className="
             sm:col-span-2
           "
         >
-
           <small
             className="
               text-slate-400
@@ -6360,11 +5425,8 @@ function DocumentInfo({
               "-"
             }
           </div>
-
         </div>
-
       </div>
-
 
       <div
         className="
@@ -6375,7 +5437,6 @@ function DocumentInfo({
           text-sm
         "
       >
-
         <FileText
           size={16}
           className="
@@ -6389,9 +5450,7 @@ function DocumentInfo({
           doc.documentLink ||
           "-"
         }
-
       </div>
-
     </div>
   );
 }
@@ -6403,772 +5462,306 @@ function DocumentInfo({
 
 function ApprovalChain({
   doc,
-  activeStep
+  activeStep,
+  isPublic = false
 }) {
+  const publicStatus = status => {
+    if (status === "APPROVED") return "Signed";
+    if (status === "WAITING") return "Waiting";
+    if (status === "REJECTED") return "Rejected";
+    return status;
+  };
 
   return (
-
-    <div
-      className="
-        card
-        p-5
-      "
-    >
-
-      <div
-        className="
-          flex
-          items-center
-          justify-between
-        "
-      >
-
-        <h2
-          className="
-            font-bold
-          "
-        >
+    <div className="card p-5">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold">
           Approval Chain
         </h2>
 
-
-        <span
-          className="
-            text-sm
-            font-semibold
-            text-slate-500
-          "
-        >
-
-          {
-            doc.steps.filter(
-              step =>
-                step.status ===
-                "APPROVED"
-            ).length
-          }
-          /
-          {
-            doc.steps.length
-          }
-
+        <span className="text-sm font-semibold text-slate-500">
+          {doc.steps.filter(
+            step => step.status === "APPROVED"
+          ).length}/{doc.steps.length}
         </span>
-
       </div>
 
+      {isPublic && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+          Tampilan publik hanya menampilkan status approval.
+        </div>
+      )}
 
-      <div
-        className="
-          mt-5
-          space-y-4
-        "
-      >
-
-        {doc.steps.map(
-          (
-            step,
-            index
-          ) => (
+      <div className="mt-5 space-y-4">
+        {doc.steps.map((step, index) => (
+          <div
+            key={step.id}
+            className="relative flex gap-4"
+          >
+            {index < doc.steps.length - 1 && (
+              <div className="absolute left-4 top-9 h-full w-px bg-slate-200" />
+            )}
 
             <div
-              key={
-                step.id
-              }
-              className="
-                relative
-                flex
-                gap-4
-              "
+              className={`
+                z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full
+                ${
+                  step.status === "APPROVED"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : step.status === "REJECTED"
+                    ? "bg-red-100 text-red-700"
+                    : activeStep?.id === step.id
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-slate-100 text-slate-500"
+                }
+              `}
             >
-
-              {index <
-                doc.steps.length -
-                  1 && (
-
-                <div
-                  className="
-                    absolute
-                    left-4
-                    top-9
-                    h-full
-                    w-px
-                    bg-slate-200
-                  "
-                />
-
+              {step.status === "APPROVED" ? (
+                <Check size={16} />
+              ) : (
+                step.order
               )}
-
-
-              <div
-                className={`
-                  z-10
-                  grid
-                  h-8
-                  w-8
-                  shrink-0
-                  place-items-center
-                  rounded-full
-                  ${
-                    step.status ===
-                    "APPROVED"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : step.status ===
-                        "REJECTED"
-                      ? "bg-red-100 text-red-700"
-                      : activeStep?.id ===
-                        step.id
-                      ? "bg-blue-100 text-blue-700"
-                      : "bg-slate-100 text-slate-500"
-                  }
-                `}
-              >
-
-                {step.status ===
-                "APPROVED" ? (
-
-                  <Check
-                    size={16}
-                  />
-
-                ) : (
-
-                  step.order
-
-                )}
-
-              </div>
-
-
-              <div
-                className="
-                  flex-1
-                  rounded-xl
-                  border
-                  p-3
-                "
-              >
-
-                <div
-                  className="
-                    flex
-                    items-start
-                    justify-between
-                    gap-3
-                  "
-                >
-
-                  <div>
-
-                    <b>
-                      {
-                        step.approverName
-                      }
-                    </b>
-
-
-                    <div
-                      className="
-                        text-xs
-                        text-slate-500
-                      "
-                    >
-                      {
-                        step.role
-                      }
-                      {" · "}
-                      {
-                        step.position
-                      }
-                      {" · "}
-                      {
-                        step.area
-                      }
-                    </div>
-
-                  </div>
-
-
-                  <Badge
-                    status={
-                      step.status
-                    }
-                  />
-
-                </div>
-
-
-                {step.signedAt && (
-
-                  <div
-                    className="
-                      mt-2
-                      text-xs
-                      text-slate-400
-                    "
-                  >
-                    {
-                      fmt(
-                        step.signedAt
-                      )
-                    }
-                  </div>
-
-                )}
-
-
-                {step.comment && (
-
-                  <div
-                    className="
-                      mt-2
-                      rounded-lg
-                      bg-slate-50
-                      p-2
-                      text-sm
-                    "
-                  >
-
-                    <b>
-                      Catatan:
-                    </b>{" "}
-
-                    {
-                      step.comment
-                    }
-
-                  </div>
-
-                )}
-
-
-                {step.status ===
-                  "APPROVED" && (
-
-                  <div
-                    className="
-                      mt-4
-                      rounded-xl
-                      border
-                      border-slate-200
-                      bg-white
-                      p-3
-                    "
-                  >
-
-                    <div
-                      className="
-                        mb-2
-                        text-xs
-                        font-bold
-                        uppercase
-                        tracking-wide
-                        text-slate-400
-                      "
-                    >
-                      Tanda Tangan
-                    </div>
-
-
-                    {step.signature &&
-                    step.signature.startsWith(
-                      "data:image/"
-                    ) ? (
-
-                      <div
-                        className="
-                          flex
-                          min-h-[90px]
-                          items-center
-                          justify-center
-                          rounded-lg
-                          bg-slate-50
-                        "
-                      >
-
-                        <img
-
-                          src={
-                            step.signature
-                          }
-
-                          alt={
-                            `Tanda tangan ${step.approverName}`
-                          }
-
-                          className="
-                            max-h-20
-                            max-w-[220px]
-                            object-contain
-                          "
-
-                        />
-
-                      </div>
-
-                    ) : (
-
-                      <div
-                        className="
-                          flex
-                          min-h-[90px]
-                          items-center
-                          justify-center
-                          rounded-lg
-                          bg-slate-50
-                        "
-                      >
-
-                        <div
-                          className="
-                            text-center
-                          "
-                        >
-
-                          <div
-                            className="
-                              text-sm
-                              font-semibold
-                              text-emerald-700
-                            "
-                          >
-                            ✓ Approved
-                          </div>
-
-                          <div
-                            className="
-                              mt-1
-                              text-xs
-                              text-slate-400
-                            "
-                          >
-                            Signature belum
-                            tersedia pada
-                            data approval lama.
-                          </div>
-
-                        </div>
-
-                      </div>
-
-                    )}
-
-                  </div>
-
-                )}
-
-              </div>
-
             </div>
 
-          )
-        )}
+            <div className="flex-1 rounded-xl border p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <b>{step.approverName}</b>
 
+                  <div className="text-xs text-slate-500">
+                    {step.role}{" · "}
+                    {step.position}{" · "}
+                    {step.area}
+                  </div>
+                </div>
+
+                {isPublic ? (
+                  <span
+                    className={`
+                      rounded-full px-2.5 py-1 text-xs font-semibold
+                      ${
+                        step.status === "APPROVED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : step.status === "REJECTED"
+                          ? "bg-red-50 text-red-700"
+                          : "bg-amber-50 text-amber-700"
+                      }
+                    `}
+                  >
+                    {publicStatus(step.status)}
+                  </span>
+                ) : (
+                  <Badge status={step.status} />
+                )}
+              </div>
+
+              {step.signedAt && (
+                <div className="mt-2 text-xs text-slate-400">
+                  {fmt(step.signedAt)}
+                </div>
+              )}
+
+              {step.comment && (
+                <div
+                  className={`
+                    mt-3 rounded-lg p-3 text-sm
+                    ${
+                      step.status === "REJECTED"
+                        ? "border border-red-200 bg-red-50 text-red-700"
+                        : "bg-slate-50 text-slate-700"
+                    }
+                  `}
+                >
+                  <b>
+                    {step.status === "REJECTED"
+                      ? `Catatan Reject · Sequence ${step.order}:`
+                      : "Catatan:"}
+                  </b>{" "}
+                  {step.comment}
+                </div>
+              )}
+
+              {step.status === "REJECTED" && !step.comment && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  <b>
+                    Catatan Reject · Sequence {step.order}:
+                  </b>{" "}
+                  Tidak ada catatan.
+                </div>
+              )}
+
+              {isPublic && step.status === "WAITING" && (
+                <div className="mt-4 flex min-h-[70px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
+                  <span className="text-sm font-semibold text-slate-500">
+                    Waiting
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
       </div>
-
     </div>
   );
 }
-
-
-/* =========================================================
-   ACTION MODE
-========================================================= */
 
 function ActionMode({
   user,
   doc,
   step,
-  signature,
-  setSignature,
   comment,
   setComment,
   onBack,
   onApprove
 }) {
+  const [localComment, setLocalComment] =
+    useState(comment || "");
+
+  const submitAction = action => {
+    const cleanComment = localComment.trim();
+
+    if (!cleanComment) {
+      alert(
+        action === "REJECT"
+          ? "Catatan wajib diisi untuk Reject."
+          : "Catatan wajib diisi untuk Approve."
+      );
+      return;
+    }
+
+    onApprove(
+      doc.id,
+      step.id,
+      action,
+      null,
+      cleanComment
+    );
+  };
 
   return (
-
-    <div
-      className="
-        min-h-screen
-        bg-slate-50
-        p-5
-        md:p-10
-      "
-    >
-
-      <div
-        className="
-          mx-auto
-          max-w-3xl
-        "
-      >
-
+    <div className="min-h-screen bg-slate-50 p-5 md:p-10">
+      <div className="mx-auto max-w-3xl">
         <button
-
-          onClick={
-            onBack
-          }
-
-          className="
-            mb-5
-            text-sm
-            font-semibold
-            text-[#1261A0]
-          "
+          onClick={onBack}
+          className="mb-5 text-sm font-semibold text-[#1261A0]"
         >
           ← Kembali ke Detail
         </button>
 
-
-        <div
-          className="
-            mb-5
-          "
-        >
-
-          <div
-            className="
-              text-xs
-              font-bold
-              uppercase
-              text-slate-400
-            "
-          >
-            {
-              doc.submissionNo
-            }
+        <div className="mb-5">
+          <div className="text-xs font-bold uppercase text-slate-400">
+            {doc.submissionNo}
           </div>
 
-
-          <h1
-            className="
-              mt-1
-              text-2xl
-              font-extrabold
-            "
-          >
-            {
-              step.role ===
-              "REVIEWER"
-                ? "Review Dokumen"
-                : "Approval Dokumen"
-            }
+          <h1 className="mt-1 text-2xl font-extrabold">
+            {step.role === "REVIEWER"
+              ? "Review Dokumen"
+              : "Approval Dokumen"}
           </h1>
 
-
-          <p
-            className="
-              mt-1
-              text-sm
-              text-slate-500
-            "
-          >
-            {
-              doc.title
-            }
+          <p className="mt-1 text-sm text-slate-500">
+            {doc.title}
           </p>
-
         </div>
 
-
-        <div
-          className="
-            card
-            p-6
-          "
-        >
-
-          <div
-            className="
-              rounded-xl
-              bg-blue-50
-              p-4
-            "
-          >
-
-            <div
-              className="
-                text-xs
-                font-bold
-                uppercase
-                text-[#1261A0]
-              "
-            >
+        <div className="card p-6">
+          <div className="rounded-xl bg-blue-50 p-4">
+            <div className="text-xs font-bold uppercase text-[#1261A0]">
               Logged in as
             </div>
 
-
-            <div
-              className="
-                mt-1
-                font-bold
-              "
-            >
-              {
-                user.name
-              }
+            <div className="mt-1 font-bold">
+              {user.name}
             </div>
 
-
-            <div
-              className="
-                text-xs
-                text-slate-500
-              "
-            >
-              {
-                user.role
-              }
-              {" · "}
-              {
-                user.position
-              }
-              {" · "}
-              {
-                user.area
-              }
+            <div className="text-xs text-slate-500">
+              {step.role}{" · "}
+              {user.position}{" · "}
+              {user.area}
             </div>
-
           </div>
 
-
-          <div
-            className="
-              mt-6
-            "
-          >
-
-            <h2
-              className="
-                font-bold
-              "
-            >
+          <div className="mt-6">
+            <h2 className="font-bold">
               Dokumen
             </h2>
 
-
-            <div
-              className="
-                mt-3
-                rounded-xl
-                bg-slate-50
-                p-4
-                text-sm
-              "
-            >
-
+            <div className="mt-3 rounded-xl bg-slate-50 p-4 text-sm">
               <FileText
                 size={16}
-                className="
-                  mr-2
-                  inline
-                "
+                className="mr-2 inline"
               />
-
-              {
-                doc.fileName ||
+              {doc.fileName ||
                 doc.documentLink ||
-                "-"
-              }
-
+                "-"}
             </div>
 
+            {doc.documentLink &&
+              doc.documentLink !== "#" && (
+                <a
+                  href={doc.documentLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 block text-sm font-semibold text-[#1261A0]"
+                >
+                  Buka dokumen
+                </a>
+              )}
           </div>
 
-
-          <div
-            className="
-              mt-6
-            "
-          >
-
-            <label
-              className="
-                label
-              "
-            >
-              Tanda Tangan
+          <div className="mt-6">
+            <label className="label">
+              Catatan Approval / Review
             </label>
-
-
-            <SignaturePad
-
-              value={
-                signature
-              }
-
-              onChange={
-                setSignature
-              }
-
-            />
-
-          </div>
-
-
-          <div
-            className="
-              mt-5
-            "
-          >
-
-            <label
-              className="
-                label
-              "
-            >
-              Catatan
-            </label>
-
 
             <textarea
-
-              className="
-                input
-                min-h-24
-              "
-
-              value={
-                comment
-              }
-
+              className="input min-h-28"
+              value={localComment}
               onChange={e =>
-                setComment(
-                  e.target.value
-                )
+                setLocalComment(e.target.value)
               }
-
-              placeholder="
-                Tambahkan catatan...
-              "
-
+              placeholder={
+                step.role === "REVIEWER"
+                  ? "Tulis hasil review / catatan..."
+                  : "Tulis catatan persetujuan..."
+              }
             />
 
+            <p className="mt-2 text-xs text-slate-400">
+              Catatan wajib diisi untuk Approve maupun Reject.
+            </p>
           </div>
 
-
-          <div
-            className="
-              mt-5
-              grid
-              grid-cols-2
-              gap-3
-            "
-          >
-
+          <div className="mt-5 grid grid-cols-2 gap-3">
             <button
-
               type="button"
-
-              className="
-                btn-danger
-              "
-
-              onClick={() => {
-
-                if (
-                  !comment.trim()
-                ) {
-
-                  alert(
-                    "Catatan wajib diisi untuk Reject."
-                  );
-
-                  return;
-                }
-
-
-                onApprove(
-
-                  doc.id,
-
-                  step.id,
-
-                  "REJECT",
-
-                  null,
-
-                  comment
-
-                );
-
-              }}
+              className="btn-danger"
+              onClick={() =>
+                submitAction("REJECT")
+              }
             >
-
               Reject
-
             </button>
 
-
             <button
-
               type="button"
-
-              className="
-                btn-primary
-              "
-
-              onClick={() => {
-
-                if (
-                  !signature
-                ) {
-
-                  alert(
-                    "Tanda tangan wajib diisi."
-                  );
-
-                  return;
-                }
-
-
-                onApprove(
-
-                  doc.id,
-
-                  step.id,
-
-                  "APPROVE",
-
-                  signature,
-
-                  comment
-
-                );
-
-              }}
+              className="btn-primary"
+              onClick={() =>
+                submitAction("APPROVE")
+              }
             >
-
-              {step.role ===
-              "REVIEWER"
+              {step.role === "REVIEWER"
                 ? "Approve Review"
                 : "Approve"}
-
-              <Check
-                size={16}
-              />
-
+              <Check size={16} />
             </button>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }
 
-
-/* =========================================================
-   AUTH MODAL
-========================================================= */
-
-/* =========================================================
-   AUTH MODAL
-========================================================= */
 
 function AuthModal({
   users,
@@ -7176,153 +5769,94 @@ function AuthModal({
   onClose,
   onContinue
 }) {
-
-  const [selectedUserId, setSelectedUserId] =
-    useState("");
+  const [
+    selectedUserId,
+    setSelectedUserId
+  ] = useState("");
 
   /*
-   * FILTER USER SESUAI KEBUTUHAN
-   *
-   * LOGIN   -> Semua user
-   * CREATE  -> Applicant
-   * REVIEW  -> Reviewer
-   * APPROVE -> Approver
-   */
+    Semua action menggunakan master user yang sama.
+    Tidak ada filter berdasarkan role master user.
 
-/* =========================================================
-   AVAILABLE USERS
-========================================================= */
-
-const availableUsers =
-  users.filter(user => {
-
-    /*
-     * LOGIN BIASA
-     * Semua user boleh muncul
-     *
-     * Applicant
-     * Reviewer
-     * Approver
-     * Viewer
-     */
-
-    if (
-      request?.action === "LOGIN"
-    ) {
-
-      return true;
-
-    }
-
-
-    /*
-     * CREATE REQUEST
-     * Hanya user yang boleh
-     * membuat pengajuan.
-     */
-
-    if (
-      request?.action === "CREATE"
-    ) {
-
-      return (
-        user.role === "APPLICANT"
-      );
-
-    }
-
-
-    /*
-     * REVIEW
-     * Hanya Reviewer.
-     */
-
-    if (
-      request?.action === "REVIEW"
-    ) {
-
-      return (
-        user.role === "REVIEWER"
-      );
-
-    }
-
-
-    /*
-     * APPROVE
-     * Hanya Approver.
-     */
-
-    if (
-      request?.action === "APPROVE"
-    ) {
-
-      return (
-        user.role === "APPROVER"
-      );
-
-    }
-
-
-    return false;
-
-  });
-
-
-  const handleContinue = () => {
-
-    if (!selectedUserId) {
-      alert(
-        "Silakan pilih nama terlebih dahulu."
-      );
-
-      return;
-    }
-
-    onContinue(
-      Number(selectedUserId)
+    Untuk REVIEW / APPROVE, authorizeAction()
+    tetap melakukan validasi bahwa user yang dipilih
+    adalah assignee step aktif.
+  */
+  const availableUsers =
+    users.filter(
+      user =>
+        user.active !== false
     );
-  };
 
+  const handleContinue =
+    () => {
+      if (!selectedUserId) {
+        alert(
+          "Silakan pilih nama terlebih dahulu."
+        );
+        return;
+      }
 
-  const getTitle = () => {
+      onContinue(
+        Number(
+          selectedUserId
+        )
+      );
+    };
 
-    if (request?.action === "CREATE") {
-      return "Login untuk Membuat Pengajuan";
-    }
+  const getTitle =
+    () => {
+      if (
+        request?.action ===
+        "CREATE"
+      ) {
+        return "Login untuk Membuat Pengajuan";
+      }
 
-    if (request?.action === "REVIEW") {
-      return "Login untuk Review";
-    }
+      if (
+        request?.action ===
+        "REVIEW"
+      ) {
+        return "Login untuk Review";
+      }
 
-    if (request?.action === "APPROVE") {
-      return "Login untuk Approval";
-    }
+      if (
+        request?.action ===
+        "APPROVE"
+      ) {
+        return "Login untuk Approval";
+      }
 
-    return "Login";
-  };
+      return "Login";
+    };
 
+  const getDescription =
+    () => {
+      if (
+        request?.action ===
+        "CREATE"
+      ) {
+        return "Pilih user yang akan membuat pengajuan.";
+      }
 
-  const getDescription = () => {
+      if (
+        request?.action ===
+        "REVIEW"
+      ) {
+        return "Pilih user yang ditugaskan sebagai Reviewer pada dokumen.";
+      }
 
-    if (request?.action === "CREATE") {
-      return "Pilih user yang akan membuat pengajuan.";
-    }
+      if (
+        request?.action ===
+        "APPROVE"
+      ) {
+        return "Pilih user yang ditugaskan sebagai Approver pada dokumen.";
+      }
 
-    if (request?.action === "REVIEW") {
-      return "Pilih reviewer yang ditugaskan pada dokumen.";
-    }
-
-    if (request?.action === "APPROVE") {
-      return "Pilih approver yang ditugaskan pada dokumen.";
-    }
-
-    return "Pilih user untuk melanjutkan.";
-  };
-
+      return "Pilih user untuk melanjutkan.";
+    };
 
   return (
-
     <div
       className="
         fixed
@@ -7334,7 +5868,6 @@ const availableUsers =
         p-4
       "
     >
-
       <div
         className="
           w-full
@@ -7345,11 +5878,11 @@ const availableUsers =
           shadow-xl
         "
       >
-
-        {/* HEADER */}
-
-        <div className="mb-5">
-
+        <div
+          className="
+            mb-5
+          "
+        >
           <h2
             className="
               text-xl
@@ -7357,7 +5890,9 @@ const availableUsers =
               text-slate-900
             "
           >
-            {getTitle()}
+            {
+              getTitle()
+            }
           </h2>
 
           <p
@@ -7367,16 +5902,13 @@ const availableUsers =
               text-slate-500
             "
           >
-            {getDescription()}
+            {
+              getDescription()
+            }
           </p>
-
         </div>
 
-
-        {/* USER SELECT */}
-
         <div>
-
           <label
             className="
               label
@@ -7384,7 +5916,6 @@ const availableUsers =
           >
             Nama Pengguna
           </label>
-
 
           <select
             className="
@@ -7401,15 +5932,12 @@ const availableUsers =
                 )
             }
           >
-
             <option value="">
               Pilih nama pengguna...
             </option>
 
-
             {availableUsers.map(
               user => (
-
                 <option
                   key={
                     user.id
@@ -7418,31 +5946,24 @@ const availableUsers =
                     user.id
                   }
                 >
-
-                  {user.name}
-
+                  {
+                    user.name
+                  }
                   {" — "}
-
-                  {user.position}
-
+                  {
+                    user.position
+                  }
                   {" · "}
-
-                  {user.area}
-
+                  {
+                    user.area
+                  }
                 </option>
-
               )
             )}
-
           </select>
-
         </div>
 
-
-        {/* INFO USER */}
-
         {selectedUserId && (
-
           <div
             className="
               mt-4
@@ -7452,14 +5973,16 @@ const availableUsers =
               text-sm
             "
           >
-
             {(() => {
-
               const selectedUser =
                 users.find(
                   user =>
-                    Number(user.id) ===
-                    Number(selectedUserId)
+                    Number(
+                      user.id
+                    ) ===
+                    Number(
+                      selectedUserId
+                    )
                 );
 
               if (!selectedUser) {
@@ -7467,16 +5990,16 @@ const availableUsers =
               }
 
               return (
-
                 <>
-
                   <div
                     className="
                       font-bold
                       text-slate-800
                     "
                   >
-                    {selectedUser.name}
+                    {
+                      selectedUser.name
+                    }
                   </div>
 
                   <div
@@ -7487,7 +6010,9 @@ const availableUsers =
                     "
                   >
                     NIK:{" "}
-                    {selectedUser.nik}
+                    {
+                      selectedUser.nik
+                    }
                   </div>
 
                   <div
@@ -7496,25 +6021,23 @@ const availableUsers =
                       text-slate-500
                     "
                   >
-                    {selectedUser.position}
+                    {
+                      selectedUser.position
+                    }
                     {" · "}
-                    {selectedUser.department}
+                    {
+                      selectedUser.department
+                    }
                     {" · "}
-                    {selectedUser.area}
+                    {
+                      selectedUser.area
+                    }
                   </div>
-
                 </>
-
               );
-
             })()}
-
           </div>
-
         )}
-
-
-        {/* BUTTON */}
 
         <div
           className="
@@ -7524,7 +6047,6 @@ const availableUsers =
             gap-2
           "
         >
-
           <button
             type="button"
             onClick={
@@ -7537,7 +6059,6 @@ const availableUsers =
             Batal
           </button>
 
-
           <button
             type="button"
             onClick={
@@ -7549,13 +6070,9 @@ const availableUsers =
           >
             Lanjutkan
           </button>
-
         </div>
-
       </div>
-
     </div>
-
   );
 }
 
@@ -8175,34 +6692,32 @@ function VerificationPage({
                 "#" ? (
 
                 <a
-                  href={
-                    doc.documentLink
-                  }
+                  href={doc.documentLink}
                   target="_blank"
                   rel="noreferrer"
-                  className="
-                    block
-                    truncate
-                    font-semibold
-                    text-[#1261A0]
-                  "
+                  className="block truncate font-semibold text-[#1261A0]"
                 >
-                  {
-                    doc.documentLink
-                  }
+                  Buka dokumen terlampir
                 </a>
+
+              ) : doc.file ? (
+
+                <button
+                  type="button"
+                  className="font-semibold text-[#1261A0]"
+                  onClick={() => {
+                    const url = URL.createObjectURL(doc.file);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                  }}
+                >
+                  Buka dokumen terlampir
+                </button>
 
               ) : (
 
-                <div
-                  className="
-                    font-semibold
-                  "
-                >
-                  {
-                    doc.fileName ||
-                    "-"
-                  }
+                <div className="font-semibold">
+                  {doc.fileName || "-"}
                 </div>
 
               )}
@@ -8482,377 +6997,88 @@ function VerificationPage({
 
 
 /* =========================================================
-   FINAL DOCUMENT PREVIEW
+   QR CODE
 ========================================================= */
 
-function FinalDocumentPreview({
-  doc,
-  onBack
-}) {
+function downloadQrCode(doc) {
+  const svg = document.getElementById(`verification-qr-${doc.id}`);
+
+  if (!svg) {
+    alert("QR belum siap untuk diunduh.");
+    return;
+  }
+
+  const serializer = new XMLSerializer();
+  const source = serializer.serializeToString(svg);
+  const blob = new Blob(
+    [source],
+    { type: "image/svg+xml;charset=utf-8" }
+  );
+
+  const url = URL.createObjectURL(blob);
+  const safeNo = String(doc.submissionNo || "document")
+    .replace(/[^a-z0-9-_]/gi, "_");
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `QR-${safeNo}.svg`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function QRCodeCard({ doc }) {
+  const qrUrl = doc.qr || verificationUrl(doc.id);
+
+  const openVerification = () => {
+    window.open(qrUrl, "_blank", "noopener,noreferrer");
+  };
 
   return (
-
-    <div
-      className="
-        min-h-screen
-        bg-slate-100
-        p-4
-        md:p-8
-      "
-    >
-
-      <div
-        className="
-          mx-auto
-          max-w-5xl
-        "
-      >
-
-        <div
-          className="
-            mb-5
-            flex
-            items-center
-            justify-between
-          "
-        >
-
-          <div>
-
-            <button
-              onClick={
-                onBack
-              }
-              className="
-                mb-2
-                text-sm
-                font-semibold
-                text-[#1261A0]
-              "
-            >
-              ← Kembali
-            </button>
-
-
-            <h1
-              className="
-                text-2xl
-                font-extrabold
-              "
-            >
-              Dokumen Final
-            </h1>
-
-          </div>
-
-
-          <Badge
-            status={
-              doc.status
-            }
-          />
-
-        </div>
-
-
-        <div
-          className="
-            overflow-auto
-            rounded-2xl
-            bg-slate-300
-            p-4
-            md:p-8
-          "
-        >
-
-          <div
-            className="
-              mx-auto
-              min-h-[1123px]
-              w-full
-              max-w-[794px]
-              bg-white
-              p-10
-              shadow-xl
-              md:p-16
-            "
-          >
-
-            <div
-              className="
-                border-b-2
-                border-slate-800
-                pb-5
-                text-center
-              "
-            >
-
-              <div
-                className="
-                  text-sm
-                  font-bold
-                  uppercase
-                  tracking-widest
-                "
-              >
-                PERUSAHAAN /
-                UNIT KERJA
-              </div>
-
-
-              <div
-                className="
-                  mt-1
-                  text-xs
-                  text-slate-500
-                "
-              >
-                Dokumen Transmittal
-              </div>
-
-            </div>
-
-
-            <div
-              className="
-                mt-10
-                text-center
-              "
-            >
-
-              <h2
-                className="
-                  text-xl
-                  font-bold
-                  uppercase
-                "
-              >
-                {
-                  doc.title
-                }
-              </h2>
-
-
-              <p
-                className="
-                  mt-2
-                  text-xs
-                  text-slate-500
-                "
-              >
-                {
-                  doc.submissionNo
-                }
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                mt-10
-                space-y-4
-                text-sm
-                leading-7
-              "
-            >
-
-              <p>
-                <b>
-                  Pemohon:
-                </b>{" "}
-                {
-                  doc.applicantName
-                }
-              </p>
-
-
-              <p>
-                <b>
-                  Departemen:
-                </b>{" "}
-                {
-                  doc.department
-                }
-              </p>
-
-
-              <p>
-                <b>
-                  Tanggal:
-                </b>{" "}
-                {
-                  fmt(
-                    doc.createdAt
-                  )
-                }
-              </p>
-
-
-              <p>
-                {
-                  doc.description ||
-                  "-"
-                }
-              </p>
-
-            </div>
-
-
-            <div
-              className="
-                mt-[430px]
-                border-t
-                pt-6
-              "
-            >
-
-              <div
-                className="
-                  mb-4
-                  text-center
-                  text-xs
-                  font-semibold
-                  text-slate-500
-                "
-              >
-                APPROVAL SIGNATURES
-              </div>
-
-
-              <div
-                className="
-                  grid
-                  grid-cols-1
-                  gap-5
-                  sm:grid-cols-3
-                "
-              >
-
-                {doc.steps.map(
-                  step => (
-
-                    <div
-                      key={
-                        step.id
-                      }
-                      className="
-                        text-center
-                        text-xs
-                      "
-                    >
-
-                      <div
-                        className="
-                          flex
-                          h-20
-                          items-end
-                          justify-center
-                        "
-                      >
-
-                        {step.signature &&
-                        step.signature.startsWith(
-                          "data:image/"
-                        ) ? (
-
-                          <img
-
-                            src={
-                              step.signature
-                            }
-
-                            alt={
-                              `Tanda tangan ${step.approverName}`
-                            }
-
-                            className="
-                              max-h-16
-                              max-w-[150px]
-                              object-contain
-                            "
-
-                          />
-
-                        ) : (
-
-                          <span
-                            className="
-                              text-xs
-                              text-slate-400
-                            "
-                          >
-                            Belum ditandatangani
-                          </span>
-
-                        )}
-
-                      </div>
-
-
-                      <div
-                        className="
-                          border-t
-                          border-slate-700
-                          pt-2
-                        "
-                      >
-
-                        <b>
-                          {
-                            step.approverName
-                          }
-                        </b>
-
-
-                        <div>
-                          {
-                            step.role
-                          }
-                          {" · "}
-                          {
-                            step.position
-                          }
-                        </div>
-
-
-                        <div>
-                          {
-                            step.area
-                          }
-                        </div>
-
-
-                        <div
-                          className="
-                            mt-1
-                            text-slate-500
-                          "
-                        >
-                          {
-                            fmt(
-                              step.signedAt
-                            )
-                          }
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  )
-                )}
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
+    <div className="card border-emerald-200 bg-emerald-50/30 p-5">
+      <div className="font-bold text-emerald-700">
+        Approval Selesai
       </div>
 
+      <p className="mt-1 text-sm text-slate-600">
+        Seluruh tahapan approval telah selesai. QR ini dapat
+        diunduh dan digunakan untuk verifikasi dokumen.
+      </p>
+
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 text-center">
+        <QRCodeSVG
+          id={`verification-qr-${doc.id}`}
+          value={qrUrl}
+          size={220}
+          className="mx-auto"
+        />
+        
+
+        <div className="mt-3 text-xs text-slate-500">
+          Scan untuk membuka detail dan verifikasi dokumen
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={openVerification}
+          >
+            <QrCode size={16} />
+            Lihat Verification
+          </button>
+
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => downloadQrCode(doc)}
+          >
+            <QrCode size={16} />
+            Download QR
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
